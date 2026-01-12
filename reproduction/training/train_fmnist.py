@@ -1,6 +1,7 @@
 import os
+
 import torch
-from image.datasets import MNIST
+from image.datasets import FMNIST
 from image.model import Model
 
 # Ensure output directory exists
@@ -11,8 +12,8 @@ os.makedirs(out_dir, exist_ok=True)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Load dataset
-train = MNIST(train=True, device=device)
-test = MNIST(train=False, device=device)
+train = FMNIST(train=True, device=device)
+test = FMNIST(train=False, device=device)
 
 # Initialize model
 model = Model.from_config(
@@ -35,4 +36,4 @@ history = model.fit(train, test)
 print(history.tail())
 
 # Save model
-torch.save(model.state_dict(), "reproduction/outputs/models/mnist_base.pt")
+torch.save(model.state_dict(), "reproduction/outputs/models/fmnist_base.pt")
