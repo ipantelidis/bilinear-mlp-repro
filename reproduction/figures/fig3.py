@@ -17,7 +17,7 @@ pio.templates.default = "plotly_white"
 # Paths and device
 # =====================================
 
-out_dir = "../outputs/figures/fig3"
+out_dir = "../outputs/figures/"
 os.makedirs(out_dir, exist_ok=True)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -55,7 +55,20 @@ model.fit(train, test, transform)
 torch.set_grad_enabled(False)
 
 # =====================================
-# Plot Figure 3: eigenspectrum per digit
+# Plot Figure 3: eigenspectrum for digit 5
+# =====================================
+fig = plot_eigenspectrum(
+    model,
+    digit=5,
+    eigenvectors=4,
+    eigenvalues=20,
+)
+
+out_path = os.path.join(out_dir, "fig3.png")
+fig.write_image(out_path, scale=4)
+
+# =====================================
+# Plot Appendix A: eigenspectrum per digit
 # =====================================
 
 for digit in range(10):
@@ -66,7 +79,7 @@ for digit in range(10):
         eigenvalues=20,
     )
 
-    out_path = os.path.join(out_dir, f"digit_{digit}.png")
+    out_path = os.path.join(out_dir, f"appendix_a/digit_{digit}.png")
     fig.write_image(out_path, scale=4)
 
     print(f"Saved {out_path}")
