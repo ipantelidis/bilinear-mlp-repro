@@ -67,19 +67,4 @@ fig = plot_eigenspectrum(
 out_path = os.path.join(out_dir, "fig3.png")
 fig.write_image(out_path, scale=4)
 
-# =====================================
-# Plot Appendix A: eigenspectrum per digit
-# =====================================
 
-for digit in range(10):
-    fig = plot_eigenspectrum(
-        model,
-        digit=digit,
-        eigenvectors=4,
-        eigenvalues=20,
-    )
-
-    out_path = os.path.join(out_dir, f"appendix_a/digit_{digit}.png")
-    fig.write_image(out_path, scale=4)
-
-    print(f"Saved {out_path}")
