@@ -1,0 +1,151 @@
+import torch
+from torch import nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader
+from torch.optim import Adam
+from torchvision import datasets, transforms
+from torchvision.utils import save_image
+import os
+
+from mlp import Bilinear, Linear, RMSNorm
+
+
+
+class Encoder(nn.Module):
+    def __init__(self, d_input, d_hidden, d_latent):
+        super().__init__()
+        self.embed = Linear(d_input, d_hidden, bias=False)
+
+        self.block1 = Bilinear(d_hidden, d_hidden, bias=False)
+        self.norm1  = RMSNorm()
+
+        self.block2 = Bilinear(d_hidden, d_hidden, bias=False)
+        self.norm2  = RMSNorm()
+
+        self.mu     = Linear(d_hidden, d_latent, bias=False)
+        self.logvar = Linear(d_hidden, d_latent, bias=False)
+
+    def forward(self, x):
+        h = self.embed(x)
+        h = self.norm1(self.block1(h))
+        h = self.norm2(self.block2(h))
+        return self.mu(h), self.logvar(h)
+
+
+
+
+class Decoder(nn.Module):
+    def __init__(self, d_latent, d_hidden, d_output):
+        super().__init__()
+        self.embed = Linear(d_latent, d_hidden, bias=False)
+
+        self.block1 = Bilinear(d_hidden, d_hidden, bias=False)
+        self.norm1  = RMSNorm()
+
+        self.block2 = Bilinear(d_hidden, d_hidden, bias=False)
+        self.norm2  = RMSNorm()
+
+        self.out = nn.Linear(d_hidden, d_output, bias=False)
+
+    def forward(self, z):
+        h = self.embed(z)
+        h = self.norm1(self.block1(h))
+        h = self.norm2(self.block2(h))
+        return self.out(h)
+
+
+
+
+
+class VAE(nn.Module):
+    def __init__(self, d_input=784, d_hidden=400, d_latent=20):
+        super().__init__()
+        self.encoder = Encoder(d_input, d_hidden, d_latent)
+        self.decoder = Decoder(d_latent, d_hidden, d_input)
+
+    def reparameterize(self, mu, logvar):
+        mu = mu.clamp(-5, 5)
+        logvar = logvar.clamp(-6, 2)
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        return mu + eps * std
+
+
+    def forward(self, x):
+        mu, logvar = self.encoder(x)
+        z = self.reparameterize(mu, logvar)
+        logits = self.decoder(z)
+        return logits, mu, logvar
+
+
+
+# Likelihood + ELBO
+def elbo_loss(x, logits, mu, logvar):
+    # Bernoulli likelihood (as used in the paper for MNIST) TRY GAUSSIAN
+    recon = F.binary_cross_entropy_with_logits(
+        logits, x, reduction="sum"
+    ) / x.size(0)
+
+    kl = -0.5 * torch.sum(
+        1 + logvar - mu.pow(2) - logvar.exp()
+    ) / x.size(0)
+
+    return recon + kl, recon, kl
+
+
+
+
+
+
+def train(model, loader, device, epochs=100):
+    opt = Adam(model.parameters(), lr=3e-4)
+    os.makedirs("both_samples", exist_ok=True)
+
+    for epoch in range(epochs):
+        model.train()
+        total = 0.0
+
+        for x, _ in loader:
+            x = x.view(x.size(0), -1).to(device)
+            logits, mu, logvar = model(x)
+            loss, _, _ = elbo_loss(x, logits, mu, logvar)
+
+            opt.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)     # spiking gradients
+            opt.step()
+
+            total += loss.item()
+
+        print(f"epoch {epoch:03d} | loss {total / len(loader):.4f}")
+
+        if epoch % 5 == 0:
+            model.eval()
+            with torch.no_grad():
+                z = torch.randn(9, model.encoder.mu.out_features, device=device)
+                logits = model.decoder(z)
+                x = torch.sigmoid(logits).view(-1, 1, 28, 28)
+                save_image(x, f"both_samples/epoch_{epoch:03d}.png", nrow=3)
+
+
+
+if __name__ == "__main__":
+    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+
+    transform = transforms.ToTensor()
+    train_set = datasets.MNIST(
+        root="./data", train=True, download=True, transform=transform
+    )
+    loader = DataLoader(train_set, batch_size=128, shuffle=True)
+
+    def init_small(m):
+        if hasattr(m, "weight") and m.weight is not None:
+            nn.init.normal_(m.weight, std=1e-2)
+
+    model = VAE().to(device)
+    model.apply(init_small)
+
+
+    train(model, loader, device, epochs=100)
+    torch.save(model.state_dict(), "full_vae.pt")
+
