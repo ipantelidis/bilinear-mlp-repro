@@ -131,7 +131,7 @@ for i, annotation in enumerate(fig.layout.annotations):
 # =====================================
 
 fig.write_image(
-    "../outputs/figures/fig2.png",
+    "fig_02.png",
     scale=4,
 )
 

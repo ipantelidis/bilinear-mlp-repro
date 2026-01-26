@@ -17,7 +17,7 @@ pio.templates.default = "plotly_white"
 # Paths and device
 # =====================================
 
-out_dir = "../outputs/figures/"
+out_dir = "./"
 os.makedirs(out_dir, exist_ok=True)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -64,7 +64,7 @@ fig = plot_eigenspectrum(
     eigenvalues=20,
 )
 
-out_path = os.path.join(out_dir, "fig3.png")
+out_path = os.path.join(out_dir, "fig_03.png")
 fig.write_image(out_path, scale=4)
 
 

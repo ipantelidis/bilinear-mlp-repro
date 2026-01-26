@@ -17,8 +17,7 @@ pio.templates.default = "plotly_white"
 # Paths and device
 # =====================================
 
-out_dir = "../outputs/figures/"
-os.makedirs(out_dir, exist_ok=True)
+out_dir = "./"
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -66,7 +65,7 @@ for digit in range(10):
         eigenvalues=20,
     )
 
-    out_path = os.path.join(out_dir, f"appendix_a/digit_{digit}.png")
+    out_path = os.path.join(out_dir, f"digit_{digit}.png")
     fig.write_image(out_path, scale=4)
 
     print(f"Saved {out_path}")

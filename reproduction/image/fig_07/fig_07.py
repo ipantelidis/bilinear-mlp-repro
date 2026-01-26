@@ -19,7 +19,6 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 # ============================================================
 device = "cuda"
 torch.set_grad_enabled(True)
-os.makedirs("adv", exist_ok=True)
 
 VMIN_DEC, VMAX_DEC = -0.25, 0.25
 VMIN_ENC, VMAX_ENC = -0.50, 0.50
@@ -209,7 +208,7 @@ for tag, cfg in EXPERIMENTS.items():
         ax.text(0.5, -0.18, title, ha="center", va="top",
                 transform=ax.transAxes, fontsize=9)
 
-    plt.savefig(f"../outputs/figures/fig7a{tag}.png", bbox_inches="tight")
+    plt.savefig(f"fig_07a{tag}.png", bbox_inches="tight")
     plt.close()
 
     # ========================================================
@@ -258,7 +257,7 @@ for tag, cfg in EXPERIMENTS.items():
     plt.ylabel("Misclassification")
 
     plt.tight_layout()
-    plt.savefig(f"../outputs/figures/fig7b{tag}.png", bbox_inches="tight")
+    plt.savefig(f"fig_07b{tag}.png", bbox_inches="tight")
     plt.close()
 
     torch.set_grad_enabled(True)

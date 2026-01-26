@@ -107,13 +107,12 @@ torch.set_grad_enabled(False)
 
 name = "blur"  # or "rotation" or "translation"
 
-os.makedirs("../outputs/cache", exist_ok=True)
 save_file(
     dict(vecs=all_vecs, vals=all_vals, accs=all_accs),
-    f"../outputs/cache/{name}.safetensors",
+    f"{name}.safetensors",
 )
 
-tensors = load_file(f"../outputs/cache/{name}.safetensors")
+tensors = load_file(f"{name}.safetensors")
 all_vecs = tensors["vecs"]
 all_vals = tensors["vals"]
 all_accs = tensors["accs"]
@@ -350,4 +349,4 @@ fig.add_annotation(
     showarrow=False
 )
 
-fig.write_image(f"../outputs/figures/appendix_b/{name}.png")
+fig.write_image(f"{name}.png")

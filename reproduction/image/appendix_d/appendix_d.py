@@ -272,4 +272,4 @@ for i in range(3):
 # Save figure
 # =====================================
 
-fig.write_image(f"../outputs/figures/appendix_d/hosvd_{feature}.png")
+fig.write_image(f"hosvd_{feature}.png")

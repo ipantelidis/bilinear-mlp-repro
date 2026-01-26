@@ -170,7 +170,7 @@ fig.add_annotation(
 # =====================================
 
 fig.write_image(
-    "..outputs/figures/fig4.png",
+    "fig_04.png",
     scale=4,
 )
 

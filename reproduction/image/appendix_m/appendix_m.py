@@ -71,7 +71,7 @@ for tag, cfg in EXPERIMENTS.items():
 
     torch.save(
         {"config": model.config, "model": model.state_dict()},
-        f"../outputs/models/adversarial_model_{cfg['label']}.pt"
+        f"adversarial_model_{cfg['label']}.pt"
     )
 
     # ----------------------------
@@ -176,7 +176,7 @@ for tag, cfg in EXPERIMENTS.items():
     grid_enc.cbar_axes[0].colorbar(im)
 
     plt.savefig(
-        f"../outputs/figures/appendix_m/adversarial_masks_{tag}.png",
+        f"adversarial_masks_{tag}.png",
         bbox_inches="tight"
     )
     plt.close()

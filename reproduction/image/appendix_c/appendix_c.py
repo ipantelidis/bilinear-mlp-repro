@@ -51,7 +51,7 @@ sample = test.x[8]
 correctly_classified_5 = plot_explanation(mnist, sample)
 
 correctly_classified_5.write_image(
-    "../outputs/figures/correctly_classified_5.png"
+    "correctly_classified_5.png"
 )
 
 # =====================================
@@ -62,5 +62,5 @@ sample = test.x[321]
 misclassified_2 = plot_explanation(mnist, sample)
 
 misclassified_2.write_image(
-    "../outputs/figures/misclassified_2.png"
+    "misclassified_2.png"
 )

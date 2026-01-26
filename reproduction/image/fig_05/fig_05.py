@@ -71,9 +71,8 @@ for d, i in product(range(6), range(5)):
 torch.set_grad_enabled(False)
 
 # Cache features
-os.makedirs("..outputs/cache", exist_ok=True)
-torch.save(features, "..outputs/cache/features_sim.pt")
-features = torch.load("..outputs/cache/features_sim.pt")
+torch.save(features, "features_sim.pt")
+features = torch.load("features_sim.pt")
 
 # =====================================
 # FIGURE 1 — Similarity across eigenvectors
@@ -135,7 +134,7 @@ fig.update_xaxes(title="Eigenvector rank")
 fig.update_yaxes(title="Cosine similarity", range=[0.4, 1.01])
 
 fig.write_image(
-    "..outputs/figures/fig5a.png"
+    "fig_05a.png"
 )
 
 # =====================================
@@ -238,6 +237,6 @@ fig.update_yaxes(
 )
 
 fig.write_image(
-    "..outputs/figures/fig5b.png"
+    "fig_05b.png"
 )
 

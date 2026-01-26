@@ -95,9 +95,8 @@ for d, i in product(range(6), range(5)):
 torch.set_grad_enabled(False)
 
 # Cache features
-os.makedirs("..outputs/cache", exist_ok=True)
-torch.save(features, "..outputs/cache/features_trunc.pt")
-features = torch.load("..outputs/cache/features_trunc.pt")
+torch.save(features, "features_trunc.pt")
+features = torch.load("features_trunc.pt")
 
 # =====================================
 # FIGURE 1 — Truncation across sizes (accuracy drop)
@@ -152,7 +151,7 @@ fig.update_yaxes(
 )
 
 fig.write_image(
-    "..outputs/figures/appendix_f/acc_drop_trunc.png"
+    "acc_drop_trunc.png"
 )
 
 # =====================================
@@ -208,7 +207,7 @@ fig.update_xaxes(title="Eigenvector rank")
 fig.update_yaxes(title="Cosine similarity", range=[0.0, 1.01])
 
 fig.write_image(
-    "..outputs/figures/appendix_f/sim_eigenvecs.png"
+    "sim_eigenvecs.png"
 )
 
 # =====================================
@@ -245,5 +244,5 @@ fig.update_yaxes(
 )
 
 fig.write_image(
-    "..outputs/figures/appendix_f/heatmap.png"
+    "heatmap.png"
 )

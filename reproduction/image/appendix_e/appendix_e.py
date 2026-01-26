@@ -24,7 +24,7 @@ color = dict(
 # Paths and device
 # =====================================
 
-out_dir = "../outputs/figures/"
+out_dir = "./"
 os.makedirs(out_dir, exist_ok=True)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
