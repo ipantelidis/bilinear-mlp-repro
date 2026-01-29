@@ -14,22 +14,23 @@ from mlp import Bilinear, Linear, RMSNorm
 class Encoder(nn.Module):
     def __init__(self, d_input, d_hidden, d_latent):
         super().__init__()
-        self.embed = Linear(d_input, d_hidden, bias=False)
-
-        self.block1 = Bilinear(d_hidden, d_hidden, bias=False)
-        self.norm1  = RMSNorm()
-
-        self.block2 = Bilinear(d_hidden, d_hidden, bias=False)
-        self.norm2  = RMSNorm()
-
-        self.mu     = Linear(d_hidden, d_latent, bias=False)
-        self.logvar = Linear(d_hidden, d_latent, bias=False)
+        self.embed = Linear(d_input, d_hidden)
+        self.block1 = Bilinear(d_hidden, d_hidden)
+        self.mu = Linear(d_hidden, d_latent)
+        
+        #self.block1 = Bilinear(d_hidden, d_hidden, bias=False)
+        self.logvar = Linear(d_hidden, d_latent)
+        #self.norm = RMSNorm()       # Normalize after the bilinear to prevent instability
 
     def forward(self, x):
         h = self.embed(x)
-        h = self.norm1(self.block1(h))
-        h = self.norm2(self.block2(h))
-        return self.mu(h), self.logvar(h)
+        h = self.block1(h)
+        #h = self.norm(h)  
+        mu = self.mu(h)
+
+        logvar = self.logvar(h)
+        logvar = logvar.clamp(-6, 2)    # constraint variance of posterior (stabulity) 
+        return mu, logvar
 
 
 
@@ -37,20 +38,13 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(self, d_latent, d_hidden, d_output):
         super().__init__()
-        self.embed = Linear(d_latent, d_hidden, bias=False)
-
-        self.block1 = Bilinear(d_hidden, d_hidden, bias=False)
-        self.norm1  = RMSNorm()
-
-        self.block2 = Bilinear(d_hidden, d_hidden, bias=False)
-        self.norm2  = RMSNorm()
-
-        self.out = nn.Linear(d_hidden, d_output, bias=False)
+        self.embed = Linear(d_latent, d_hidden)
+        self.block1 = Bilinear(d_hidden, d_hidden)
+        self.out = nn.Linear(d_hidden, d_output)
 
     def forward(self, z):
         h = self.embed(z)
-        h = self.norm1(self.block1(h))
-        h = self.norm2(self.block2(h))
+        h = self.block1(h)
         return self.out(h)
 
 
@@ -147,5 +141,5 @@ if __name__ == "__main__":
 
 
     train(model, loader, device, epochs=100)
-    torch.save(model.state_dict(), "full_vae.pt")
+    torch.save(model.state_dict(), "both_vae.pt")
 

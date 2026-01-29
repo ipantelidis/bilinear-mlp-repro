@@ -1,130 +1,191 @@
+# ============================
+# bilinear_vae.py
+# ============================
+
 import torch
-from torch import nn
-import torch.nn.functional as F
+from torch import nn, Tensor
 from torch.utils.data import DataLoader
-from torch.optim import Adam
 from torchvision import datasets, transforms
-from torchvision.utils import save_image
-import os
+from jaxtyping import Float
 
-from mlp import Bilinear, Linear
+# ----------------------------
+# Layers (UNCHANGED)
+# ----------------------------
+
+class Bilinear(nn.Linear):
+    """A bilinear layer with optional gate"""
+    def __init__(self, d_in: int, d_out: int, bias=False, gate=None) -> None:
+        super().__init__(d_in, 2 * d_out, bias=bias)
+        self.gate = {"relu": nn.ReLU(), "silu": nn.SiLU(),
+                     "gelu": nn.GELU(), None: nn.Identity()}[gate]
+
+    def forward(self, x: Float[Tensor, "... d_in"]) -> Float[Tensor, "... d_out"]:
+        left, right = super().forward(x).chunk(2, dim=-1)
+        return self.gate(left) * right
+
+    @property
+    def w_l(self):
+        return self.weight.chunk(2, dim=0)[0]
+
+    @property
+    def w_r(self):
+        return self.weight.chunk(2, dim=0)[1]
 
 
+class Linear(nn.Linear):
+    """A linear layer with optional gate"""
+    def __init__(self, d_in: int, d_out: int, bias=False, gate=None) -> None:
+        super().__init__(d_in, d_out, bias=bias)
+        self.gate = {"relu": nn.ReLU(), "silu": nn.SiLU(),
+                     "gelu": nn.GELU(), None: nn.Identity()}[gate]
 
-class Encoder(nn.Module):
-    def __init__(self, d_input, d_hidden, d_latent):
+    def forward(self, x: Float[Tensor, "... d_in"]) -> Float[Tensor, "... d_out"]:
+        return self.gate(super().forward(x))
+
+
+class MLP(nn.Module):
+    """MLP supporting bilinear or linear"""
+    def __init__(self, d_model: int, d_hidden: int, bias=False, bilinear=True, gate=None):
         super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(d_input, d_hidden),
-            nn.ReLU(),
-            nn.Linear(d_hidden, d_hidden),
-            nn.ReLU(),
+        self.w = (Bilinear if bilinear else Linear)(
+            d_model, d_hidden, bias=bias, gate=gate
         )
-        self.mu = nn.Linear(d_hidden, d_latent)
-        self.logvar = nn.Linear(d_hidden, d_latent)
+        self.p = nn.Linear(d_hidden, d_model, bias=bias)
+
+    def forward(self, x: Float[Tensor, "... d_model"]) -> Float[Tensor, "... d_model"]:
+        return self.p(self.w(x))
+
+
+class RMSNorm(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.eps = 1e-8
 
     def forward(self, x):
-        h = self.net(x)
-        return self.mu(h), self.logvar(h)
+        return x * torch.rsqrt(torch.mean(x.pow(2), dim=-1, keepdim=True) + self.eps)
 
 
-
-class Decoder(nn.Module):
-    def __init__(self, d_latent, d_hidden, d_output):
+class Norm(nn.Module):
+    def __init__(self, norm=True):
         super().__init__()
-        self.embed = Linear(d_latent, d_hidden, bias=False)
+        self.norm = RMSNorm() if norm else nn.Identity()
 
-        self.block1 = Bilinear(d_hidden, d_hidden, bias=False)
-        self.block2 = Bilinear(d_hidden, d_hidden, bias=False)
-
-        self.out = nn.Linear(d_hidden, d_output)
-
-    def forward(self, z):
-        h = self.embed(z)
-        h = self.block1(h)
-        h = self.block2(h)
-        return self.out(h)
+    def forward(self, x):
+        return self.norm(x)
 
 
+# ----------------------------
+# VAE
+# ----------------------------
 
 class VAE(nn.Module):
-    def __init__(self, d_input=784, d_hidden=400, d_latent=20):
+    def __init__(
+        self,
+        x_dim: int = 784,
+        z_dim: int = 32,
+        d_hidden: int = 256,
+        n_layers: int = 2,
+        bias: bool = False,
+        gate=None,
+    ):
         super().__init__()
-        self.encoder = Encoder(d_input, d_hidden, d_latent)
-        self.decoder = Decoder(d_latent, d_hidden, d_input)
 
-    def reparameterize(self, mu, logvar):
-        std = torch.exp(0.5 * logvar)
-        eps = torch.randn_like(std)
-        return mu + eps * std
+        # Encoder
+        enc = []
+        for _ in range(n_layers):
+            enc += [
+                MLP(x_dim, d_hidden, bias=bias, bilinear=True, gate=gate),
+                Norm(True),
+            ]
+        self.encoder = nn.Sequential(*enc)
+        self.mu = nn.Linear(x_dim, z_dim, bias=bias)
+        self.logvar = nn.Linear(x_dim, z_dim, bias=bias)
 
-    def forward(self, x):
-        mu, logvar = self.encoder(x)
-        z = self.reparameterize(mu, logvar)
-        logits = self.decoder(z)
-        return logits, mu, logvar
+        # Decoder (BILINEAR)
+        dec = []
+        for _ in range(n_layers):
+            dec += [
+                MLP(z_dim, d_hidden, bias=bias, bilinear=True, gate=gate),
+                Norm(True),
+            ]
+        self.decoder = nn.Sequential(*dec)
+        self.out = nn.Linear(z_dim, x_dim, bias=bias)
+
+    def sample(self, mu: Tensor, logvar: Tensor) -> Tensor:
+        eps = torch.randn_like(mu)
+        return mu + eps * torch.exp(0.5 * logvar)
+
+    def forward(self, x: Tensor):
+        h = self.encoder(x)
+        mu = self.mu(h)
+        logvar = self.logvar(h)
+        z = self.sample(mu, logvar)
+        h_dec = self.decoder(z)
+        x_hat = self.out(h_dec)
+        return x_hat, mu, logvar
 
 
+# ----------------------------
+# Loss
+# ----------------------------
 
-# Likelihood + ELBO
-def elbo_loss(x, logits, mu, logvar):
-    # Bernoulli likelihood (as used in the paper for MNIST) TRY GAUSSIAN
-    recon = F.binary_cross_entropy_with_logits(
-        logits, x, reduction="sum"
-    ) / x.size(0)
-
-    kl = -0.5 * torch.sum(
-        1 + logvar - mu.pow(2) - logvar.exp()
-    ) / x.size(0)
-
+def vae_loss(x_hat, x, mu, logvar):
+    recon = torch.mean((x_hat - x) ** 2)
+    kl = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
     return recon + kl, recon, kl
 
 
+# ----------------------------
+# Train
+# ----------------------------
 
+def main():
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Lambda(lambda x: x.view(-1)),  # flatten
+    ])
 
+    dataset = datasets.MNIST(
+        root="./data", train=True, download=True, transform=transform
+    )
+    loader = DataLoader(dataset, batch_size=128, shuffle=True)
 
-def train(model, loader, device, epochs=100):
-    opt = Adam(model.parameters(), lr=1e-3)
-    os.makedirs("bilinear_samples", exist_ok=True)
+    model = VAE(
+        x_dim=784,
+        z_dim=32,
+        d_hidden=256,
+        n_layers=2,
+        gate=None,          # IMPORTANT: keep None for bilinear
+    ).to(device)
 
-    for epoch in range(epochs):
-        model.train()
-        total = 0.0
+    opt = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-        for x, _ in loader:
-            x = x.view(x.size(0), -1).to(device)
-            logits, mu, logvar = model(x)
-            loss, _, _ = elbo_loss(x, logits, mu, logvar)
+    for epoch in range(10):
+    for x, _ in loader:
+        x = x.to(device)
 
-            opt.zero_grad()
-            loss.backward()
-            opt.step()
+        x_hat, mu, logvar = model(x)
+        loss, recon, kl = vae_loss(x_hat, x, mu, logvar)
 
-            total += loss.item()
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
 
-        print(f"epoch {epoch:03d} | loss {total / len(loader):.4f}")
+    # ---- SAMPLE ----
+    sample = sample_from_model(model, device, z_dim=32, n=1)
+    sample_img = sample.view(28, 28).cpu()
 
-        if epoch % 5 == 0:
-            model.eval()
-            with torch.no_grad():
-                z = torch.randn(9, model.encoder.mu.out_features, device=device)
-                logits = model.decoder(z)
-                x = torch.sigmoid(logits).view(-1, 1, 28, 28)
-                save_image(x, f"bilinear_samples/epoch_{epoch:03d}.png", nrow=3)
+    print(
+        f"epoch {epoch:02d} | loss {loss.item():.4f} "
+        f"| recon {recon.item():.4f} | kl {kl.item():.4f}"
+    )
+
+    # optional: save
+    torch.save(sample_img, f"sample_epoch_{epoch}.pt")
 
 
 
 if __name__ == "__main__":
-    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-
-    transform = transforms.ToTensor()
-    train_set = datasets.MNIST(
-        root="./data", train=True, download=True, transform=transform
-    )
-    loader = DataLoader(train_set, batch_size=128, shuffle=True)
-
-    model = VAE().to(device)
-    train(model, loader, device, epochs=100)
-    torch.save(model.state_dict(), "decoder_vae.pt")
-
+    main()

@@ -70,49 +70,61 @@ class VAE(nn.Module):
 # Likelihood + ELBO
 # -----------------------------
 def elbo_loss(x, logits, mu, logvar):
-    # Bernoulli likelihood (as used in the paper for MNIST)
     recon = F.binary_cross_entropy_with_logits(
         logits, x, reduction="sum"
-    ) / x.size(0)
-
+    )
     kl = -0.5 * torch.sum(
         1 + logvar - mu.pow(2) - logvar.exp()
-    ) / x.size(0)
-
-    return recon + kl, recon, kl
-
+    )
+    return recon, kl
 
 # -----------------------------
 # Training
 # -----------------------------
 def train(model, loader, device, epochs=100):
     opt = Adam(model.parameters(), lr=1e-3)
-    os.makedirs("samples", exist_ok=True)
+    os.makedirs("vanilla_samples", exist_ok=True)
 
     for epoch in range(epochs):
         model.train()
         total = 0.0
 
+        total_elbo = 0.0
+        total_recon = 0.0
+        total_kl = 0.0
+
         for x, _ in loader:
             x = x.view(x.size(0), -1).to(device)
+
             logits, mu, logvar = model(x)
-            loss, _, _ = elbo_loss(x, logits, mu, logvar)
+            recon, kl = elbo_loss(x, logits, mu, logvar)
+            loss = (recon + kl) / x.size(0)
 
             opt.zero_grad()
             loss.backward()
             opt.step()
 
-            total += loss.item()
+            total_elbo += loss.item()
+            total_recon += recon.item() / x.size(0)
+            total_kl += kl.item() / x.size(0)
 
-        print(f"epoch {epoch:03d} | loss {total / len(loader):.4f}")
+
+        print(
+            f"epoch {epoch:03d} | "
+            f"elbo {total_elbo/len(loader):.3f} | "
+            f"recon {total_recon/len(loader):.3f} | "
+            f"kl {total_kl/len(loader):.3f}"
+        )
+
 
         if epoch % 5 == 0:
             model.eval()
             with torch.no_grad():
                 z = torch.randn(9, model.encoder.mu.out_features, device=device)
                 logits = model.decoder(z)
-                x = torch.sigmoid(logits).view(-1, 1, 28, 28)
-                save_image(x, f"samples/epoch_{epoch:03d}.png", nrow=3)
+                x = torch.sigmoid(logits)
+                x = x.view(-1, 1, 28, 28)
+                save_image(x, f"vanilla_samples/epoch_{epoch:03d}.png", nrow=3)
 
 
 # -----------------------------
@@ -121,7 +133,10 @@ def train(model, loader, device, epochs=100):
 if __name__ == "__main__":
     device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
-    transform = transforms.ToTensor()
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        lambda x: (x > 0.5).float()
+    ])
     train_set = datasets.MNIST(
         root="./data", train=True, download=True, transform=transform
     )
@@ -129,3 +144,4 @@ if __name__ == "__main__":
 
     model = VAE().to(device)
     train(model, loader, device, epochs=100)
+    torch.save(model.state_dict(), "vanilla_vae.pt")

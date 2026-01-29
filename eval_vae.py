@@ -1,107 +1,83 @@
 import torch
-import os
-import matplotlib.pyplot as plt
+import torch.nn.functional as F
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
+
+from encoder import VAE
 
 
-# ------------------------------------------------------------
-# 1. Build Q for ONE latent
-# ------------------------------------------------------------
-def compute_Q_for_latent(encoder, latent_idx):
-    W_L = encoder.block2.w_l
-    W_R = encoder.block2.w_r
-    w   = encoder.mu.weight[latent_idx]
+# ---------- importance: rank latents ----------
+@torch.no_grad()
+def latent_importance(model, loader, device):
+    model.eval()
+    acc = None
+    n = 0
 
-    Q = torch.einsum("mi,mj,m->ij", W_L, W_R, w)
-    return 0.5 * (Q + Q.T)
+    for x, _ in loader:
+        x = x.view(x.size(0), -1).to(device)
+        mu, _ = model.encoder(x)
+        s = mu.pow(2).sum(0)
+        acc = s if acc is None else acc + s
+        n += mu.size(0)
 
-
-# ------------------------------------------------------------
-# 2. Eigendecomposition (CPU only)
-# ------------------------------------------------------------
-def decompose_Q(Q):
-    Q_cpu = Q.detach().cpu()
-    vals, vecs = torch.linalg.eigh(Q_cpu)
-    return vals, vecs
+    return acc / n
 
 
-# ------------------------------------------------------------
-# 3. Decompose VAE (latent-wise)
-# ------------------------------------------------------------
-def decompose_vae(model):
-    encoder = model.encoder
-    n_latents = encoder.mu.weight.shape[0]
+# ---------- eval with latent truncation ----------
+@torch.no_grad()
+def eval_truncated(model, loader, topk_idx, device):
+    model.eval()
+    total = 0.0
 
-    all_vals = []
-    all_vecs = []
+    for x, _ in loader:
+        x = x.view(x.size(0), -1).to(device)
 
-    for latent_idx in range(n_latents):
-        Q = compute_Q_for_latent(encoder, latent_idx)
-        vals, vecs = decompose_Q(Q)
-        all_vals.append(vals)
-        all_vecs.append(vecs)
+        logits, mu, logvar = model(x)
+        z = model.reparameterize(mu, logvar)
 
-    return torch.stack(all_vals), torch.stack(all_vecs)
+        z_trunc = torch.zeros_like(z)
+        z_trunc[:, topk_idx] = z[:, topk_idx]
 
+        logits = model.decoder(z_trunc)
 
-# ------------------------------------------------------------
-# 4. Plot eigenspectrum (VAE-safe)
-# ------------------------------------------------------------
-def plot_eigenspectrum_vae_matplotlib(
-    model,
-    latent_idx,
-    eigenvectors=3,
-    eigenvalues=20,
-    out_dir="eigenspectrum",
-):
-    os.makedirs(out_dir, exist_ok=True)
+        recon = F.binary_cross_entropy_with_logits(
+            logits, x, reduction="sum"
+        ) / x.size(0)
 
-    vals, vecs = decompose_vae(model)
-    vals = vals[latent_idx]
-    vecs = vecs[latent_idx]
+        kl = -0.5 * torch.sum(
+            1 + logvar - mu.pow(2) - logvar.exp()
+        ) / x.size(0)
 
-    embed_W = model.encoder.embed.weight.detach().cpu()
+        total += (recon + kl).item()
 
-    negative = torch.arange(eigenvectors)
-    positive = -1 - negative
-
-    # -------- eigenvalue spectrum --------
-    plt.figure(figsize=(4, 3))
-    plt.plot(vals[-eigenvalues:].flip(0).numpy())
-    plt.plot(vals[:eigenvalues].numpy())
-    plt.axhline(0, color="black", linewidth=0.5)
-    plt.title(f"Latent {latent_idx} eigenvalues")
-    plt.tight_layout()
-    plt.savefig(f"{out_dir}/latent_{latent_idx}_spectrum.png")
-    plt.close()
-
-    # -------- eigenvector images --------
-    for sign, indices in [("pos", positive), ("neg", negative)]:
-        fig, axes = plt.subplots(1, eigenvectors, figsize=(2 * eigenvectors, 2))
-        if eigenvectors == 1:
-            axes = [axes]
-
-        for ax, idx in zip(axes, indices):
-            img = (embed_W.T @ vecs[idx]).view(28, 28)
-            ax.imshow(img.flip(0).numpy(), cmap="RdBu")
-            ax.axis("off")
-
-        plt.suptitle(f"Latent {latent_idx} {sign} eigenvectors")
-        plt.tight_layout()
-        plt.savefig(f"{out_dir}/latent_{latent_idx}_{sign}.png")
-        plt.close()
+    return total / len(loader)
 
 
-
-# ------------------------------------------------------------
-# 5. Run
-# ------------------------------------------------------------
 if __name__ == "__main__":
-    from encoder import VAE
-
     device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
+    # data
+    transform = transforms.ToTensor()
+    test_set = datasets.MNIST(
+        root="./data", train=False, download=True, transform=transform
+    )
+    loader = DataLoader(test_set, batch_size=128, shuffle=False)
+
+    # load model
     model = VAE().to(device)
-    model.load_state_dict(torch.load("decoder_vae.pt", map_location=device))
+    model.load_state_dict(torch.load("vae.pt", map_location=device))
     model.eval()
 
-    plot_eigenspectrum_vae_matplotlib(model, latent_idx=0)
+    # compute importance
+    imp = latent_importance(model, loader, device)
+    all_idx = torch.arange(imp.numel(), device=device)
+
+    # baseline
+    baseline = eval_truncated(model, loader, all_idx, device)
+
+    print(f"baseline ELBO = {baseline:.4f}")
+
+    for k in [1, 2, 5, 10, 20]:
+        topk = imp.topk(k).indices
+        loss = eval_truncated(model, loader, topk, device)
+        print(f"k={k:2d} | ELBO={loss:.4f} | Δ={loss - baseline:.4f}")
