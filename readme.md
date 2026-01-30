@@ -199,7 +199,17 @@ pip install -r requirements.txt
 
 This installs all dependencies required to reproduce both the original experiments and the VAE extension, including PyTorch, torchvision, NumPy, and plotting utilities.
 
-After installation, you can choose which individual figure, experiment, or appendix result to reproduce by running the corresponding scripts. Each experiment is self-contained, allowing selective reproduction without executing the full pipeline.
+### 4. Export Original Module Path
+
+Some reproduction scripts rely on the original module layout located in the `original/` directory. To ensure Python resolves these imports correctly, export the `original` directory to your `PYTHONPATH`.
+
+From the repository root, run:
+
+```bash
+export PYTHONPATH=$(pwd)/original
+```
+
+After this setup, you can choose which individual figure, experiment, or appendix result to reproduce by running the corresponding scripts. Each experiment is self-contained, allowing selective reproduction without executing the full pipeline.
 
 
 
