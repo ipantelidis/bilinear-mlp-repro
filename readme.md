@@ -209,7 +209,6 @@ From the repository root, run:
 export PYTHONPATH=$(pwd)/original
 ```
 
-After this setup, you can choose which individual figure, experiment, or appendix result to reproduce by running the corresponding scripts. Each experiment is self-contained, allowing selective reproduction without executing the full pipeline.
-
+After this setup, you can selectively reproduce individual figures, experiments, or appendix results by navigating to the corresponding directory and running the associated scripts. Each experiment is self-contained, allowing targeted reproduction without executing the full pipeline.
 
 
