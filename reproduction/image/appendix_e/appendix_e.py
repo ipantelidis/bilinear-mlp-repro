@@ -3,6 +3,7 @@
 # =====================================
 import os
 from itertools import product
+from pathlib import Path
 
 import plotly.express as px
 import plotly.io as pio
@@ -12,6 +13,9 @@ from image import MNIST, Model
 from kornia.augmentation import RandomGaussianNoise
 from torch import nn
 
+os.chdir(Path(__file__).resolve().parents[3])
+HERE = Path(__file__).parent
+
 pio.templates.default = "plotly_white"
 
 # Shared color settings
@@ -19,13 +23,6 @@ color = dict(
     color_continuous_scale="RdBu",
     color_continuous_midpoint=0.0,
 )
-
-# =====================================
-# Paths and device
-# =====================================
-
-out_dir = "./"
-os.makedirs(out_dir, exist_ok=True)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -112,8 +109,7 @@ fig.update_layout(
     title_x=0.45,
 )
 
-out_path = os.path.join(out_dir, "eigenval_sparsity.png")
-fig.write_image(out_path, scale=4)
+fig.write_image(HERE / "eigenval_sparsity.png", scale=4)
 
 # =====================================
 # Eigenvector sparsity analysis
@@ -147,8 +143,7 @@ fig.update_layout(
     title_x=0.45,
 )
 
-out_path = os.path.join(out_dir, "eigenvec_sparsity.png")
-fig.write_image(out_path, scale=4)
+fig.write_image(HERE / "eigenvec_sparsity.png", scale=4)
 
 # =====================================
 # Example eigenspectra for selected settings

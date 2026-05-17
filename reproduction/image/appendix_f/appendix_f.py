@@ -4,6 +4,7 @@
 
 import os
 from itertools import product
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import plotly.express as px
@@ -16,6 +17,9 @@ from kornia.augmentation import RandomGaussianNoise
 from scipy import stats
 from torch import einsum, nn
 from torch.nn.functional import cosine_similarity
+
+os.chdir(Path(__file__).resolve().parents[3])
+HERE = Path(__file__).parent
 
 pio.templates.default = "plotly_white"
 
@@ -95,8 +99,8 @@ for d, i in product(range(6), range(5)):
 torch.set_grad_enabled(False)
 
 # Cache features
-torch.save(features, "features_trunc.pt")
-features = torch.load("features_trunc.pt")
+torch.save(features, HERE / "features_trunc.pt")
+features = torch.load(HERE / "features_trunc.pt")
 
 # =====================================
 # FIGURE 1 — Truncation across sizes (accuracy drop)
@@ -150,9 +154,7 @@ fig.update_yaxes(
     type="log",
 )
 
-fig.write_image(
-    "acc_drop_trunc.png"
-)
+fig.write_image(HERE / "acc_drop_trunc.png")
 
 # =====================================
 # FIGURE 2 — Similarity across eigenvectors
@@ -206,9 +208,7 @@ fig.update_layout(
 fig.update_xaxes(title="Eigenvector rank")
 fig.update_yaxes(title="Cosine similarity", range=[0.0, 1.01])
 
-fig.write_image(
-    "sim_eigenvecs.png"
-)
+fig.write_image(HERE / "sim_eigenvecs.png")
 
 # =====================================
 # FIGURE 3 — Heatmap
@@ -243,6 +243,4 @@ fig.update_yaxes(
     tickvals=torch.arange(6),
 )
 
-fig.write_image(
-    "heatmap.png"
-)
+fig.write_image(HERE / "heatmap.png")

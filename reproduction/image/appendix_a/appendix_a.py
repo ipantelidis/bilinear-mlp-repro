@@ -3,21 +3,19 @@
 # =====================================
 
 import os
+from pathlib import Path
 
 import plotly.io as pio
 import torch
 from image import MNIST, Model
 from image.plotting import plot_eigenspectrum
-from kornia.augmentation import RandomAffine, RandomGaussianNoise
+from kornia.augmentation import RandomGaussianNoise
 from torch import nn
 
+os.chdir(Path(__file__).resolve().parents[3])
+HERE = Path(__file__).parent
+
 pio.templates.default = "plotly_white"
-
-# =====================================
-# Paths and device
-# =====================================
-
-out_dir = "./"
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -28,6 +26,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 model = Model.from_config(
     epochs=100,
     wd=1.0,
+    d_hidden=512,
     n_layer=1,
     residual=False,
     seed=420,
@@ -65,8 +64,7 @@ for digit in range(10):
         eigenvalues=20,
     )
 
-    out_path = os.path.join(out_dir, f"digit_{digit}.png")
-    fig.write_image(out_path, scale=4)
+    fig.write_image(HERE / f"digit_{digit}.png", scale=4)
 
     print(f"Saved {out_path}")
 

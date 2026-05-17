@@ -2,14 +2,20 @@
 # Imports and global setup
 # =====================================
 
+import os
+from pathlib import Path
+
 import plotly.express as px
 import plotly.io as pio
 import torch
 from einops import *
 from image import MNIST, Model
-from kornia.augmentation import RandomAffine, RandomGaussianNoise
+from kornia.augmentation import RandomGaussianNoise
 from plotly.subplots import make_subplots
 from torch import nn
+
+os.chdir(Path(__file__).resolve().parents[3])
+HERE = Path(__file__).parent
 
 pio.templates.default = "plotly_white"
 
@@ -272,4 +278,4 @@ for i in range(3):
 # Save figure
 # =====================================
 
-fig.write_image(f"hosvd_{feature}.png")
+fig.write_image(HERE / f"hosvd_{feature}.png")

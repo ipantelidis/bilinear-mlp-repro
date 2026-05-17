@@ -2,12 +2,18 @@
 # Imports and global setup
 # =====================================
 
+import os
+from pathlib import Path
+
 import plotly.io as pio
 import torch
 from einops import *
 from image import MNIST, Model, plot_explanation
 from kornia.augmentation import RandomGaussianNoise
 from torch import nn
+
+os.chdir(Path(__file__).resolve().parents[3])
+HERE = Path(__file__).parent
 
 pio.templates.default = "plotly_white"
 
@@ -50,9 +56,7 @@ torch.set_grad_enabled(False)
 sample = test.x[8]
 correctly_classified_5 = plot_explanation(mnist, sample)
 
-correctly_classified_5.write_image(
-    "correctly_classified_5.png"
-)
+correctly_classified_5.write_image(HERE / "correctly_classified_5.png")
 
 # =====================================
 # Explanation: misclassified example of a '2'
@@ -61,6 +65,4 @@ correctly_classified_5.write_image(
 sample = test.x[321]
 misclassified_2 = plot_explanation(mnist, sample)
 
-misclassified_2.write_image(
-    "misclassified_2.png"
-)
+misclassified_2.write_image(HERE / "misclassified_2.png")

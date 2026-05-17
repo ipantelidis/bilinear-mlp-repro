@@ -4,6 +4,7 @@
 import os
 from collections import namedtuple
 from itertools import product
+from pathlib import Path
 
 import plotly.express as px
 import plotly.graph_objects as go
@@ -16,6 +17,9 @@ from kornia.augmentation import (RandomAffine, RandomGaussianBlur,
 from plotly.subplots import make_subplots
 from safetensors.torch import load_file, save_file
 from torch import nn
+
+os.chdir(Path(__file__).resolve().parents[3])
+HERE = Path(__file__).parent
 
 pio.templates.default = "plotly_white"
 
@@ -109,10 +113,10 @@ name = "blur"  # or "rotation" or "translation"
 
 save_file(
     dict(vecs=all_vecs, vals=all_vals, accs=all_accs),
-    f"{name}.safetensors",
+    HERE / f"{name}.safetensors",
 )
 
-tensors = load_file(f"{name}.safetensors")
+tensors = load_file(HERE / f"{name}.safetensors")
 all_vecs = tensors["vecs"]
 all_vals = tensors["vals"]
 all_accs = tensors["accs"]
@@ -349,4 +353,4 @@ fig.add_annotation(
     showarrow=False
 )
 
-fig.write_image(f"{name}.png")
+fig.write_image(HERE / f"{name}.png")

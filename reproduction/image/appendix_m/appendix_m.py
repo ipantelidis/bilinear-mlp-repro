@@ -2,6 +2,7 @@
 # Imports
 # ============================================================
 import os
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import torch
@@ -14,9 +15,11 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 # ============================================================
 # Global config
 # ============================================================
+os.chdir(Path(__file__).resolve().parents[3])
+HERE = Path(__file__).parent
+
 device = "cuda"
 torch.set_grad_enabled(True)
-os.makedirs("images", exist_ok=True)
 
 VMIN_DEC, VMAX_DEC = -0.25, 0.25
 VMIN_ENC, VMAX_ENC = -0.50, 0.50
@@ -71,7 +74,7 @@ for tag, cfg in EXPERIMENTS.items():
 
     torch.save(
         {"config": model.config, "model": model.state_dict()},
-        f"adversarial_model_{cfg['label']}.pt"
+        HERE / f"adversarial_model_{cfg['label']}.pt"
     )
 
     # ----------------------------
@@ -175,10 +178,7 @@ for tag, cfg in EXPERIMENTS.items():
 
     grid_enc.cbar_axes[0].colorbar(im)
 
-    plt.savefig(
-        f"adversarial_masks_{tag}.png",
-        bbox_inches="tight"
-    )
+    plt.savefig(HERE / f"adversarial_masks_{tag}.png", bbox_inches="tight")
     plt.close()
 
     torch.set_grad_enabled(True)
