@@ -2,13 +2,20 @@
 # Imports and global setup
 # =====================================
 
+import os
+from pathlib import Path
+
 import plotly.express as px
 import plotly.io as pio
 import torch
 from einops import *
 from image import MNIST, Model
-from kornia.augmentation import RandomGaussianNoise, RandomSaltAndPepperNoise
+from kornia.augmentation import RandomGaussianNoise
 from torch import nn
+
+# Run from repo root so ./data always maps to <repo>/data
+os.chdir(Path(__file__).resolve().parents[3])
+HERE = Path(__file__).parent
 
 pio.templates.default = "plotly_white"
 
@@ -39,14 +46,17 @@ for i in range(5):
     model = Model.from_config(
         epochs=50,
         wd=1.0,
+        d_hidden=512,
         n_layer=1,
         residual=False,
+        seed=420,
     ).cuda()
 
-    # Input noise increases with i
+    # 5 noise levels: 0.0, 0.2, 0.4, 0.6, 0.8 — matches the commented-out Gaussian
+    # line in the original figure code (std=i*0.2). The "norm=1" annotation is
+    # directional, not the literal value of the last panel.
     transform = nn.Sequential(
         RandomGaussianNoise(mean=0, std=i * 0.2, p=1),
-        # RandomSaltAndPepperNoise(amount=0.04 * i, salt_vs_pepper=0.5, p=1),
     )
 
     torch.set_grad_enabled(True)
@@ -77,6 +87,11 @@ vecs, vals, accs = all_vecs, all_vals, all_accs
 
 # Top eigenvector of digit 0 across noise levels
 subset = vecs[:, 0, -1]
+
+# Canonicalize sign: make the element with the largest absolute value positive,
+# so colours are consistent across noise levels.
+signs = subset.gather(1, subset.abs().argmax(dim=1, keepdim=True)).sign()
+subset = subset * signs
 
 # Normalize each eigenvector independently
 subset /= subset.abs().max(1, keepdim=True).values
@@ -169,8 +184,5 @@ fig.add_annotation(
 # Save figure
 # =====================================
 
-fig.write_image(
-    "fig_04.png",
-    scale=4,
-)
+fig.write_image(HERE / "fig_04.png", scale=4)
 

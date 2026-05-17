@@ -1,12 +1,8 @@
-# =====================================
-# Imports and global setup
-# =====================================
-
 import os
 from itertools import product
+from pathlib import Path
 
 import matplotlib.pyplot as plt
-import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
 import torch
@@ -17,15 +13,12 @@ from scipy import stats
 from torch import nn
 from torch.nn.functional import cosine_similarity
 
+# Run from repo root so ./data always maps to <repo>/data
+os.chdir(Path(__file__).resolve().parents[3])
+HERE = Path(__file__).parent
+
 pio.templates.default = "plotly_white"
 
-# Shared color settings
-color = dict(
-    color_continuous_scale="RdBu",
-    color_continuous_midpoint=0.0,
-)
-
-# Model sizes explored in the paper
 sizes = [30, 50, 100, 300, 500, 1000]
 
 # =====================================
@@ -42,10 +35,26 @@ def conf_interval(sims, conf=0.95):
 
 
 # =====================================
-# Feature extraction (shared across figures)
+# Single training loop — shared across both figures
 # =====================================
 
-features = torch.empty(6, 5, 10, 20, 784)
+N_VECS = 15
+
+features = torch.empty(6, 5, 10, N_VECS, 784)
+results  = torch.empty(6, 5, 31)
+ground   = torch.empty(6, 5)
+
+def eval_truncated(data, vals, vecs, k):
+    top_k_vals, top_k_indices = vals.abs().topk(k, dim=-1)
+    top_k_vals = torch.gather(vals, -1, top_k_indices)
+    expanded_indices = top_k_indices.unsqueeze(-1).expand(-1, -1, vecs.size(-1))
+    top_k_vecs = torch.gather(vecs, 1, expanded_indices)
+    p = einsum(
+        data.flatten(start_dim=1),
+        top_k_vecs,
+        "batch inp, out hid inp -> batch hid out",
+    ).pow(2)
+    return einsum(p, top_k_vals, "batch hid out, out hid -> batch out")
 
 for d, i in product(range(6), range(5)):
     mnist = Model.from_config(
@@ -64,21 +73,29 @@ for d, i in product(range(6), range(5)):
     torch.set_grad_enabled(True)
     train, test = MNIST(train=True), MNIST(train=False)
     mnist.fit(train, test, transform)
+    torch.set_grad_enabled(False)
 
     vals, vecs = mnist.decompose()
-    features[d, i] = vecs[:, :20, :]
 
-torch.set_grad_enabled(False)
+    # Store top N_VECS eigenvectors for similarity figure
+    features[d, i] = vecs[:, :N_VECS, :]
+
+    # Compute truncation results for this model
+    for k in range(31):
+        logits = eval_truncated(test.x, vals, vecs, k)
+        results[d, i, k] = (logits.argmax(dim=1) == test.y).float().mean().cpu()
+
+    ground[d, i] = (mnist(test.x).argmax(dim=1) == test.y).float().mean().item()
 
 # Cache features
-torch.save(features, "features_sim.pt")
-features = torch.load("features_sim.pt")
+torch.save(features, HERE / "features_sim.pt")
+features = torch.load(HERE / "features_sim.pt")
 
 # =====================================
 # FIGURE 1 — Similarity across eigenvectors
 # =====================================
 
-s = slice(-20, None)
+s = slice(-N_VECS, None)
 
 sims = cosine_similarity(
     features[..., None, :, :, s, :],
@@ -133,63 +150,11 @@ fig.update_layout(
 fig.update_xaxes(title="Eigenvector rank")
 fig.update_yaxes(title="Cosine similarity", range=[0.4, 1.01])
 
-fig.write_image(
-    "fig_05a.png"
-)
+fig.write_image(HERE / "fig_05a.png")
 
 # =====================================
 # FIGURE 2 — Truncation error across sizes
 # =====================================
-
-results = torch.empty(6, 5, 31)
-ground = torch.empty(6, 5)
-
-for d, i in product(range(6), range(5)):
-    mnist = Model.from_config(
-        epochs=100,
-        wd=1.0,
-        d_hidden=sizes[d],
-        n_layer=1,
-        residual=False,
-        seed=i,
-    ).cuda()
-
-    transform = nn.Sequential(
-        RandomGaussianNoise(mean=0, std=0.4, p=1),
-    )
-
-    torch.set_grad_enabled(True)
-    train, test = MNIST(train=True), MNIST(train=False)
-    mnist.fit(train, test, transform)
-
-    vals, vecs = mnist.decompose()
-
-    def eval_truncated(data, vals, vecs, k):
-        top_k_vals, top_k_indices = vals.abs().topk(k, dim=-1)
-        top_k_vals = torch.gather(vals, -1, top_k_indices)
-
-        expanded_indices = top_k_indices.unsqueeze(-1).expand(-1, -1, vecs.size(-1))
-        top_k_vecs = torch.gather(vecs, 1, expanded_indices)
-
-        p = einsum(
-            data.flatten(start_dim=1),
-            top_k_vecs,
-            "batch inp, out hid inp -> batch hid out",
-        ).pow(2)
-
-        return einsum(p, top_k_vals, "batch hid out, out hid -> batch out")
-
-    for k in range(31):
-        logits = eval_truncated(test.x, vals, vecs, k)
-        results[d, i, k] = (
-            logits.argmax(dim=1) == test.y
-        ).float().mean().cpu()
-
-    ground[d, i] = (
-        mnist(test.x).argmax(dim=1) == test.y
-    ).float().mean().item()
-
-torch.set_grad_enabled(False)
 
 error = 1 - results
 
@@ -236,7 +201,4 @@ fig.update_yaxes(
     type="log",
 )
 
-fig.write_image(
-    "fig_05b.png"
-)
-
+fig.write_image(HERE / "fig_05b.png")

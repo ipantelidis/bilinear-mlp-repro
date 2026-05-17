@@ -3,22 +3,20 @@
 # =====================================
 
 import os
+from pathlib import Path
 
 import plotly.io as pio
 import torch
 from image import MNIST, Model
 from image.plotting import plot_eigenspectrum
-from kornia.augmentation import RandomAffine, RandomGaussianNoise
+from kornia.augmentation import RandomGaussianNoise
 from torch import nn
 
+# Run from repo root so ./data always maps to <repo>/data
+os.chdir(Path(__file__).resolve().parents[3])
+HERE = Path(__file__).parent
+
 pio.templates.default = "plotly_white"
-
-# =====================================
-# Paths and device
-# =====================================
-
-out_dir = "./"
-os.makedirs(out_dir, exist_ok=True)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -29,13 +27,14 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 model = Model.from_config(
     epochs=100,
     wd=1.0,
+    d_hidden=512,
     n_layer=1,
     residual=False,
     seed=420,
 ).to(device)
 
 # =====================================
-# Data augmentation (same as Figure 2)
+# Data augmentation
 # =====================================
 
 transform = nn.Sequential(
@@ -64,7 +63,6 @@ fig = plot_eigenspectrum(
     eigenvalues=20,
 )
 
-out_path = os.path.join(out_dir, "fig_03.png")
-fig.write_image(out_path, scale=4)
+fig.write_image(HERE / "fig_03.png", scale=4)
 
 

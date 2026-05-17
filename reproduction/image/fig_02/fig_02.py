@@ -2,6 +2,8 @@
 # Imports and global setup
 # =====================================
 
+import os
+from pathlib import Path
 import plotly.express as px
 import plotly.io as pio
 import torch
@@ -9,6 +11,10 @@ from einops import *
 from image import FMNIST, MNIST, Model
 from kornia.augmentation import RandomAffine, RandomGaussianNoise
 from torch import nn
+
+# Run from repo root so ./data always maps to <repo>/data
+os.chdir(Path(__file__).resolve().parents[3])
+HERE = Path(__file__).parent
 
 pio.templates.default = "plotly_white"
 
@@ -25,6 +31,7 @@ color = dict(
 mnist = Model.from_config(
     epochs=100,
     wd=1.0,
+    d_hidden=512,
     n_layer=1,
     residual=False,
     seed=420,
@@ -33,6 +40,7 @@ mnist = Model.from_config(
 fmnist = Model.from_config(
     epochs=100,
     wd=1.0,
+    d_hidden=512,
     n_layer=1,
     residual=False,
     seed=420,
@@ -44,7 +52,6 @@ fmnist = Model.from_config(
 
 transform = nn.Sequential(
     RandomGaussianNoise(mean=0, std=0.5, p=1),
-    # RandomAffine(degrees=0, translate=(0.25, 0.25), p=1),
 )
 
 # =====================================
@@ -131,7 +138,7 @@ for i, annotation in enumerate(fig.layout.annotations):
 # =====================================
 
 fig.write_image(
-    "fig_02.png",
+    HERE / "fig_02.png",
     scale=4,
 )
 

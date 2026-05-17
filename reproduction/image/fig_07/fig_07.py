@@ -2,8 +2,8 @@
 # Imports 
 # ============================================================
 import os
-import sys
 from collections import defaultdict
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,6 +13,10 @@ from image.datasets import MNIST
 from image.model import Model
 from kornia.augmentation import RandomGaussianNoise
 from mpl_toolkits.axes_grid1 import ImageGrid
+
+# Run from repo root so ./data always maps to <repo>/data
+os.chdir(Path(__file__).resolve().parents[3])
+HERE = Path(__file__).parent
 
 # ============================================================
 # Global config
@@ -99,8 +103,9 @@ for tag, cfg in EXPERIMENTS.items():
     model = Model.from_config(
         epochs=30,
         wd=0.0,
+        d_hidden=512,
         n_layer=1,
-        residual=True,
+        residual=False,
         seed=42
     ).to(device)
 
@@ -208,7 +213,7 @@ for tag, cfg in EXPERIMENTS.items():
         ax.text(0.5, -0.18, title, ha="center", va="top",
                 transform=ax.transAxes, fontsize=9)
 
-    plt.savefig(f"fig_07a{tag}.png", bbox_inches="tight")
+    plt.savefig(HERE / f"fig_07a{tag}.png", bbox_inches="tight")
     plt.close()
 
     # ========================================================
@@ -257,7 +262,7 @@ for tag, cfg in EXPERIMENTS.items():
     plt.ylabel("Misclassification")
 
     plt.tight_layout()
-    plt.savefig(f"fig_07b{tag}.png", bbox_inches="tight")
+    plt.savefig(HERE / f"fig_07b{tag}.png", bbox_inches="tight")
     plt.close()
 
     torch.set_grad_enabled(True)

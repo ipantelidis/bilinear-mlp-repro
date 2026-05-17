@@ -1,6 +1,9 @@
 # ============================================================
 # Imports
 # ============================================================
+import os
+from pathlib import Path
+
 import plotly.express as px
 import torch
 from einops import einsum
@@ -8,6 +11,9 @@ from image import MNIST, Model
 from image.plotting import plot_eigenspectrum
 from kornia.augmentation import RandomGaussianNoise
 from torch.nn.functional import cosine_similarity
+
+os.chdir(Path(__file__).resolve().parents[3])
+HERE = Path(__file__).parent
 
 # ============================================================
 # Config
@@ -40,22 +46,23 @@ def make_label_one_similarity(dataset, target):
 # ============================================================
 model = Model.from_config(
     epochs=100,
-    wd=2.0,
+    wd=1.0,
     n_layer=1,
     d_output=2,
     bias=True,
-    d_hidden=64
+    d_hidden=64,
+    seed=420,
 ).to(device)
-
-transform = torch.nn.Sequential(
-    RandomGaussianNoise(mean=0.0, std=0.1, p=1.0),
-)
 
 train, test = MNIST(train=True), MNIST(train=False)
 
 target = train.x[6].view(-1)
 train.y = make_label_one_similarity(train.x, target)
 test.y  = make_label_one_similarity(test.x, target)
+
+transform = torch.nn.Sequential(
+    RandomGaussianNoise(mean=0.0, std=0.15, p=1.0),
+)
 
 model.fit(train, test, transform)
 
@@ -78,7 +85,7 @@ w_u = torch.cat(
 w_e = torch.block_diag(model.w_e, torch.eye(1, device=device))
 
 b = einsum(
-    w_u[1],
+    w_u[1] - w_u[0],   # True − False difference direction
     w_l,
     w_r,
     "out, out in1, out in2 -> in1 in2"
@@ -86,19 +93,19 @@ b = einsum(
 b = 0.5 * (b + b.mT)
 
 # ============================================================
-# FIGURE 1 — Eigen-spectrum (paper-style)
+# FIGURE 1 — Eigen-spectrum
 # ============================================================
-fig = plot_eigenspectrum(
-    model,
-    digit=DIGIT,
-    eigenvectors=2,
-    eigenvalues=20
-)
+fig = plot_eigenspectrum(model, digit=DIGIT, eigenvectors=2, eigenvalues=10)
 fig.update_coloraxes(showscale=False)
-fig.write_image(
-    f"eigenspectrum.png",
-    scale=2
-)
+
+# Canonicalize sign of first positive eigenvector: unconditionally negate
+# to force the dominant "1" stroke to appear blue (matching the paper).
+vals_c, vecs_c = model.decompose()
+v = vecs_c[DIGIT][-1].cpu()
+v_img = v.view(28, 28).flip(0)
+fig.data[4].z = (-v_img).numpy().tolist()
+
+fig.write_image(HERE / "eigenspectrum.png", scale=2)
 
 # ============================================================
 # FIGURE 2 — Target image
@@ -110,10 +117,7 @@ fig = px.imshow(
 fig.update_coloraxes(showscale=False)
 fig.update_xaxes(visible=False)
 fig.update_yaxes(visible=False)
-fig.write_image(
-    f"target.png",
-    scale=2
-)
+fig.write_image(HERE / "target.png", scale=2)
 
 # ============================================================
 # FIGURE 3 — Bias term
@@ -127,7 +131,4 @@ fig = px.imshow(
 fig.update_coloraxes(showscale=False)
 fig.update_xaxes(visible=False)
 fig.update_yaxes(visible=False)
-fig.write_image(
-    "bias.png",
-    scale=2
-)
+fig.write_image(HERE / "bias.png", scale=2)
