@@ -1,0 +1,34 @@
+{
+  "linear_probe": 0.7698,
+  "silhouette": 0.03585034981369972,
+  "reconstruction_mse": 0.01899110493659973,
+  "effective_rank": 72.80534973144532,
+  "pve_1": 0.08045728765428066,
+  "pve_5": 0.22933175563812255,
+  "pve_10": 0.36491844058036804,
+  "interpolation_smoothness": {
+    "mean_monotonicity": 0.9473684210526315,
+    "per_pair": {
+      "0_to_1": {
+        "transition_step": 0.31578946113586426,
+        "confidence_auc": 0.2844142570770395,
+        "monotonicity": 0.9473684210526315
+      },
+      "3_to_5": {
+        "transition_step": 0.5789473652839661,
+        "confidence_auc": 0.5389996272135184,
+        "monotonicity": 1.0
+      },
+      "4_to_9": {
+        "transition_step": 0.5263158082962036,
+        "confidence_auc": 0.4135975062753499,
+        "monotonicity": 0.8421052631578947
+      },
+      "7_to_1": {
+        "transition_step": 0.4736842215061188,
+        "confidence_auc": 0.41424613171647945,
+        "monotonicity": 1.0
+      }
+    }
+  }
+}

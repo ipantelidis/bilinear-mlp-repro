@@ -1,0 +1,67 @@
+
+──────────────────────────────────────────────────
+Dataset  : cifar10
+Shape    : (3, 32, 32)
+Train    : 50,000 samples
+Test     : 10,000 samples
+Device : cuda
+──────────────────────────────────────────────────
+
+
+==================================================
+Model : conv_bilinear_vae
+==================================================
+
+Training  : model
+β=1.0  noise_std=0.0  recon_loss=mse  epochs=100  lr=0.001  wd=0.01
+Epoch       Train        Test        KL        LR
+--------------------------------------------------
+    1      114.71       81.63     17.50  1.00e-03
+    5       78.91       71.34     19.41  9.94e-04
+   10       77.14       69.29     19.91  9.76e-04
+   15       76.27       68.76     21.11  9.46e-04
+   20       75.65       68.26     21.99  9.05e-04
+   25       75.09       70.12     22.03  8.54e-04
+   30       74.57       67.40     21.57  7.94e-04
+   35       74.22       66.90     21.61  7.27e-04
+   40       73.93       67.24     21.49  6.55e-04
+   45       73.53       65.88     21.31  5.78e-04
+   50       73.20       65.93     21.79  5.00e-04
+   55       72.99       66.01     21.23  4.22e-04
+   60       72.65       65.63     21.26  3.45e-04
+   65       72.42       65.58     21.62  2.73e-04
+   70       72.22       65.33     21.59  2.06e-04
+   75       71.98       65.33     21.55  1.46e-04
+   80       71.76       65.50     21.88  9.55e-05
+   85       71.72       65.33     21.81  5.45e-05
+   90       71.57       65.40     21.67  2.45e-05
+   95       71.53       65.25     21.93  6.16e-06
+  100       71.52       65.22     21.90  0.00e+00
+
+Best test loss : 65.11
+Checkpoint saved → extension/checkpoints/cifar10/conv_bilinear_vae/model.pt
+  Saved → extension/figures/conv_bilinear_vae/cifar10/training_curves.png
+Loaded checkpoint from extension/checkpoints/cifar10/conv_bilinear_vae/model.pt  (epoch 98)
+
+Computing metrics …
+  Linear probe accuracy : 0.3616
+  Silhouette score      : -0.0522
+  Reconstruction MSE    : 0.014116
+  Avg effective rank    : 270.7562
+  Avg PVE@1 / @5 / @10 : 0.039 / 0.139 / 0.208
+  Metrics saved → conv_bilinear_vae/metrics.json
+  Saved → extension/figures/conv_bilinear_vae/cifar10/reconstructions.png
+  Saved → extension/figures/conv_bilinear_vae/cifar10/latent_pca.png
+  Saved → extension/figures/conv_bilinear_vae/cifar10/eigenspectrums/class0.png
+  Saved → extension/figures/conv_bilinear_vae/cifar10/eigenspectrums/class1.png
+  Saved → extension/figures/conv_bilinear_vae/cifar10/eigenspectrums/class2.png
+  Saved → extension/figures/conv_bilinear_vae/cifar10/eigenspectrums/class3.png
+  Saved → extension/figures/conv_bilinear_vae/cifar10/eigenspectrums/class4.png
+  Saved → extension/figures/conv_bilinear_vae/cifar10/eigenspectrums/class5.png
+  Saved → extension/figures/conv_bilinear_vae/cifar10/eigenspectrums/class6.png
+  Saved → extension/figures/conv_bilinear_vae/cifar10/eigenspectrums/class7.png
+  Saved → extension/figures/conv_bilinear_vae/cifar10/eigenspectrums/class8.png
+  Saved → extension/figures/conv_bilinear_vae/cifar10/eigenspectrums/class9.png
+  Figures saved → extension/figures/conv_bilinear_vae/cifar10/
+
+Done.
