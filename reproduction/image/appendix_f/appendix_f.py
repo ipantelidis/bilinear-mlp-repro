@@ -1,6 +1,15 @@
-# =====================================
-# Imports and global setup
-# =====================================
+# ============================================================
+# Appendix F — Truncation & similarity: a comparison across sizes
+# Reproduces Figure 20 from Pearce et al. (2025).
+#
+# Same 5-seed × 6-size training as Figure 5, but plots (1) the
+# accuracy drop under top-k truncation, (2) eigenvector similarity
+# of every size against the 300-wide model, and (3) a size × size
+# heatmap of top-eigenvector similarity.
+# Produces acc_drop_trunc.png, sim_eigenvecs.png, heatmap.png and
+# appendix_f_results.json; features are cached in
+# features_trunc.pt / results_trunc.pt.
+# ============================================================
 
 import os
 from itertools import product
@@ -15,7 +24,9 @@ from einops import *
 from image import MNIST, Model
 from kornia.augmentation import RandomGaussianNoise
 from scipy import stats
-from torch import einsum, nn
+# NOTE: import nn only — `from torch import einsum` would shadow the einops
+# einsum imported above, and torch.einsum cannot parse einops-style subscripts.
+from torch import nn
 from torch.nn.functional import cosine_similarity
 
 os.chdir(Path(__file__).resolve().parents[3])
@@ -50,7 +61,17 @@ features = torch.empty(6, 5, 10, 20, 784)
 results  = torch.empty(6, 5, 31)
 ground   = torch.empty(6, 5)
 
-for d, i in product(range(6), range(5)):
+CACHED = (HERE / "features_trunc.pt").exists() and (HERE / "results_trunc.pt").exists()
+
+if CACHED:
+    print("Loading cached features/results — delete the .pt files to retrain.")
+    features = torch.load(HERE / "features_trunc.pt")
+    cached = torch.load(HERE / "results_trunc.pt")
+    results, ground = cached["results"], cached["ground"]
+
+runs = [] if CACHED else list(product(range(6), range(5)))
+
+for d, i in runs:
     model = Model.from_config(
         epochs=100,
         wd=1.0,
@@ -69,7 +90,9 @@ for d, i in product(range(6), range(5)):
     model.fit(train, test, transform)
 
     vals, vecs = model.decompose()
-    features[d, i] = vecs[:, :20, :]
+    # eigh returns ascending eigenvalues: the most positive eigenvectors
+    # are the LAST columns; flip so rank 0 = largest λ.
+    features[d, i] = vecs[:, -20:, :].flip(1)
 
     def eval_truncated(data, vals, vecs, k):
         top_k_vals, top_k_idx = vals.abs().topk(k, dim=-1)
@@ -99,8 +122,9 @@ for d, i in product(range(6), range(5)):
 torch.set_grad_enabled(False)
 
 # Cache features
-torch.save(features, HERE / "features_trunc.pt")
-features = torch.load(HERE / "features_trunc.pt")
+if not CACHED:
+    torch.save(features, HERE / "features_trunc.pt")
+    torch.save(dict(results=results, ground=ground), HERE / "results_trunc.pt")
 
 # =====================================
 # FIGURE 1 — Truncation across sizes (accuracy drop)
@@ -160,7 +184,8 @@ fig.write_image(HERE / "acc_drop_trunc.png")
 # FIGURE 2 — Similarity across eigenvectors
 # =====================================
 
-s = slice(-20, None)
+# features is already ordered rank 0 = top positive eigenvector
+s = slice(None)
 
 sims = cosine_similarity(
     features[3, None, None, :, :, s, :],
@@ -168,7 +193,9 @@ sims = cosine_similarity(
     dim=-1,
 )
 
-idxs = torch.triu_indices(5, 5)
+# offset=1 excludes the diagonal: for the size-300 row it compares a run
+# with itself (cosine 1.0), which would inflate the curves.
+idxs = torch.triu_indices(5, 5, offset=1)
 sims = rearrange(
     sims[:, idxs[0], idxs[1]].abs(),
     "... batch cls comp -> ... (batch cls) comp",
@@ -244,3 +271,25 @@ fig.update_yaxes(
 )
 
 fig.write_image(HERE / "heatmap.png")
+
+# =====================================
+# Serialize quantitative results
+# =====================================
+
+import json
+
+summary = {
+    "sizes": sizes,
+    "accuracy_drop_mean_by_rank": {
+        str(sizes[i]): torch.mean(diff[i], dim=0).tolist() for i in range(6)
+    },
+    "full_model_accuracy_mean": {
+        str(sizes[i]): ground[i].mean().item() for i in range(6)
+    },
+    "top_eigvec_similarity_heatmap": sims[..., 0].mean(-1).tolist(),
+}
+
+with open(HERE / "appendix_f_results.json", "w") as f:
+    json.dump(summary, f, indent=2)
+
+print(f"Saved {HERE / 'appendix_f_results.json'}")

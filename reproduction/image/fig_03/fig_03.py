@@ -1,6 +1,11 @@
-# =====================================
-# Imports and global setup
-# =====================================
+# ============================================================
+# Figure 3 — Eigenspectrum and top eigenvectors for digit 5
+# Reproduces Figure 3 from Pearce et al. (2025).
+#
+# Trains one MNIST bilinear model (paper setup) and plots the top
+# four positive and negative eigenvectors of digit 5's interaction
+# matrix alongside its eigenvalue spectrum. Produces fig_03.png.
+# ============================================================
 
 import os
 from pathlib import Path
@@ -39,7 +44,6 @@ model = Model.from_config(
 
 transform = nn.Sequential(
     RandomGaussianNoise(mean=0, std=0.5, p=1),
-    # RandomAffine(degrees=0, translate=(0.25, 0.25), p=1),
 )
 
 # =====================================

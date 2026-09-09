@@ -1,3 +1,15 @@
+# ============================================================
+# Figure 5 — Eigenvector consistency and truncation across sizes
+# Reproduces Figure 5 from Pearce et al. (2025).
+#
+# Trains 5 seeds × 6 hidden sizes (30 … 1000) of the MNIST bilinear
+# model, then plots (A) cross-seed cosine similarity of the top
+# eigenvectors by rank and (B) classification error when the model
+# is truncated to its top-k eigenvectors per digit.
+# Produces fig_05a.png, fig_05b.png and fig_05_results.json;
+# trained features are cached in features_sim.pt / results_sim.pt.
+# ============================================================
+
 import os
 from itertools import product
 from pathlib import Path
@@ -56,54 +68,62 @@ def eval_truncated(data, vals, vecs, k):
     ).pow(2)
     return einsum(p, top_k_vals, "batch hid out, out hid -> batch out")
 
-for d, i in product(range(6), range(5)):
-    mnist = Model.from_config(
-        epochs=100,
-        wd=1.0,
-        d_hidden=sizes[d],
-        n_layer=1,
-        residual=False,
-        seed=i,
-    ).cuda()
+if (HERE / "features_sim.pt").exists() and (HERE / "results_sim.pt").exists():
+    print("Loading cached features/results — delete the .pt files to retrain.")
+    features = torch.load(HERE / "features_sim.pt")
+    cached = torch.load(HERE / "results_sim.pt")
+    results, ground = cached["results"], cached["ground"]
+else:
+    for d, i in product(range(6), range(5)):
+        mnist = Model.from_config(
+            epochs=100,
+            wd=1.0,
+            d_hidden=sizes[d],
+            n_layer=1,
+            residual=False,
+            seed=i,
+        ).cuda()
 
-    transform = nn.Sequential(
-        RandomGaussianNoise(mean=0, std=0.4, p=1),
-    )
+        transform = nn.Sequential(
+            RandomGaussianNoise(mean=0, std=0.4, p=1),
+        )
 
-    torch.set_grad_enabled(True)
-    train, test = MNIST(train=True), MNIST(train=False)
-    mnist.fit(train, test, transform)
-    torch.set_grad_enabled(False)
+        torch.set_grad_enabled(True)
+        train, test = MNIST(train=True), MNIST(train=False)
+        mnist.fit(train, test, transform)
+        torch.set_grad_enabled(False)
 
-    vals, vecs = mnist.decompose()
+        vals, vecs = mnist.decompose()
 
-    # Store top N_VECS eigenvectors for similarity figure
-    features[d, i] = vecs[:, :N_VECS, :]
+        # Store top N_VECS eigenvectors for the similarity figure.
+        # eigh returns ascending eigenvalues, so the most positive
+        # eigenvectors are the LAST columns; flip so rank 0 = largest λ.
+        features[d, i] = vecs[:, -N_VECS:, :].flip(1)
 
-    # Compute truncation results for this model
-    for k in range(31):
-        logits = eval_truncated(test.x, vals, vecs, k)
-        results[d, i, k] = (logits.argmax(dim=1) == test.y).float().mean().cpu()
+        # Compute truncation results for this model
+        for k in range(31):
+            logits = eval_truncated(test.x, vals, vecs, k)
+            results[d, i, k] = (logits.argmax(dim=1) == test.y).float().mean().cpu()
 
-    ground[d, i] = (mnist(test.x).argmax(dim=1) == test.y).float().mean().item()
+        ground[d, i] = (mnist(test.x).argmax(dim=1) == test.y).float().mean().item()
 
-# Cache features
-torch.save(features, HERE / "features_sim.pt")
-features = torch.load(HERE / "features_sim.pt")
+    torch.save(features, HERE / "features_sim.pt")
+    torch.save(dict(results=results, ground=ground), HERE / "results_sim.pt")
 
 # =====================================
 # FIGURE 1 — Similarity across eigenvectors
 # =====================================
 
-s = slice(-N_VECS, None)
-
+# features is already ordered rank 0 = top positive eigenvector
 sims = cosine_similarity(
-    features[..., None, :, :, s, :],
-    features[..., :, None, :, s, :],
+    features[..., None, :, :, :, :],
+    features[..., :, None, :, :, :],
     dim=-1,
 )
 
-idxs = torch.triu_indices(5, 5)
+# offset=1 excludes the diagonal: comparing a run with itself always
+# gives cosine 1.0 and would inflate the similarity curves.
+idxs = torch.triu_indices(5, 5, offset=1)
 sims = rearrange(
     sims[:, idxs[0], idxs[1]].abs(),
     "... batch cls comp -> ... (batch cls) comp",
@@ -202,3 +222,27 @@ fig.update_yaxes(
 )
 
 fig.write_image(HERE / "fig_05b.png")
+
+# =====================================
+# Serialize quantitative results
+# =====================================
+
+import json
+
+summary = {
+    "sizes": sizes,
+    "similarity_mean_by_rank": {
+        str(sizes[i]): torch.mean(sims[i], dim=-2).tolist() for i in range(6)
+    },
+    "truncation_error_mean_by_rank": {
+        str(sizes[i]): torch.mean(error[i], dim=0).tolist() for i in range(6)
+    },
+    "full_model_accuracy_mean": {
+        str(sizes[i]): ground[i].mean().item() for i in range(6)
+    },
+}
+
+with open(HERE / "fig_05_results.json", "w") as f:
+    json.dump(summary, f, indent=2)
+
+print(f"Saved {HERE / 'fig_05_results.json'}")

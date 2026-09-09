@@ -1,5 +1,14 @@
 # ============================================================
-# Imports
+# Figure 6 — Reverse-engineering the similarity-classifier challenge
+# Reproduces Figure 6 from Pearce et al. (2025) / Casper's (2023)
+# mechanistic interpretability challenge.
+#
+# Trains a binary bilinear classifier (with biases) whose label is
+# "similar to a target '1' image or its complement", then recovers
+# the labeling rule from the weights alone: the top eigenvector is
+# the generalizing similarity template and the learned bias sets
+# the decision threshold. Produces eigenspectrum.png, target.png
+# and bias.png.
 # ============================================================
 import os
 from pathlib import Path
@@ -56,6 +65,7 @@ model = Model.from_config(
 
 train, test = MNIST(train=True), MNIST(train=False)
 
+# The challenge target is an instance of a "1" (train sample 6)
 target = train.x[6].view(-1)
 train.y = make_label_one_similarity(train.x, target)
 test.y  = make_label_one_similarity(test.x, target)

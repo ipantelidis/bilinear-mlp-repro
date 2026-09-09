@@ -1,15 +1,21 @@
-# =====================================
-# Imports and global setup
-# =====================================
+# ============================================================
+# Figure 2 — Top eigenvectors for MNIST and Fashion-MNIST
+# Reproduces Figure 2B from Pearce et al. (2025).
+#
+# Trains one bilinear model per dataset (paper setup: d_hidden 512,
+# wd 1.0, input noise std 0.5, 100 epochs), decomposes each class's
+# interaction matrix, and plots the top positive eigenvector for
+# classes 1–5. Produces fig_02.png.
+# ============================================================
 
 import os
 from pathlib import Path
+
 import plotly.express as px
 import plotly.io as pio
 import torch
-from einops import *
 from image import FMNIST, MNIST, Model
-from kornia.augmentation import RandomAffine, RandomGaussianNoise
+from kornia.augmentation import RandomGaussianNoise
 from torch import nn
 
 # Run from repo root so ./data always maps to <repo>/data
@@ -125,6 +131,9 @@ f_labels = [
     "sandal", "shirt", "sneaker", "bag", "ankle boot",
 ]
 
+# Plotly numbers facet annotations bottom-row-first, so the label list
+# must be Fashion-MNIST (bottom row) before MNIST (top row) even though
+# the image tensor is concatenated MNIST-first.
 labels = f_labels[idxs] + m_labels[idxs]
 
 for i, annotation in enumerate(fig.layout.annotations):

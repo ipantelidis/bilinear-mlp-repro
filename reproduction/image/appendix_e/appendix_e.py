@@ -1,6 +1,14 @@
-# =====================================
-# Imports
-# =====================================
+# ============================================================
+# Appendix E — Sparsity: weight decay versus input noise
+# Reproduces Figure 19 from Pearce et al. (2025).
+#
+# Trains a 6×6 grid of MNIST bilinear models over weight decay ×
+# input-noise level and measures (L1/L2)² near-sparsity of the
+# eigenvalues (effective rank) and of the top-5 eigenvectors
+# (effective pixel count). Produces eigenval_sparsity.png and
+# eigenvec_sparsity.png; the grid is cached in
+# sparsity_grid.safetensors.
+# ============================================================
 import os
 from itertools import product
 from pathlib import Path
@@ -8,73 +16,75 @@ from pathlib import Path
 import plotly.express as px
 import plotly.io as pio
 import torch
-from einops import *
 from image import MNIST, Model
 from kornia.augmentation import RandomGaussianNoise
+from safetensors.torch import load_file, save_file
 from torch import nn
 
+# Run from repo root so ./data always maps to <repo>/data
 os.chdir(Path(__file__).resolve().parents[3])
 HERE = Path(__file__).parent
 
 pio.templates.default = "plotly_white"
 
-# Shared color settings
-color = dict(
-    color_continuous_scale="RdBu",
-    color_continuous_midpoint=0.0,
-)
-
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# =====================================
-# Enable gradients (training phase)
-# =====================================
+CACHE = HERE / "sparsity_grid.safetensors"
 
-torch.set_grad_enabled(True)
+if CACHE.exists():
+    print(f"Loading cached {CACHE.name} — delete it to retrain.")
+    tensors = load_file(CACHE)
+    avals, avecs = tensors["vals"], tensors["vecs"]
+else:
+    # =====================================
+    # Preallocate storage for grid experiment
+    # =====================================
 
-# =====================================
-# Preallocate storage for grid experiment
-# =====================================
+    # Dimensions:
+    #   wd_index × noise_index × digit × eigenvalue × pixel
+    # Only the top-5 (most positive) eigenvectors are kept — the sparsity
+    # analysis below uses nothing else, and the full grid would be ~6.6 GB.
+    avecs = torch.empty(6, 6, 10, 5, 784)
+    avals = torch.empty(6, 6, 10, 512)
 
-# Dimensions:
-#   wd_index × noise_index × digit × eigenvalue × pixel
-avecs = torch.empty(6, 6, 10, 512, 784)
-avals = torch.empty(6, 6, 10, 512)
+    torch.set_grad_enabled(True)
 
-# =====================================
-# Grid search over weight decay and noise
-# =====================================
+    # =====================================
+    # Grid search over weight decay and noise
+    # =====================================
 
-for wd, i in product(range(6), range(6)):
-    mnist = Model.from_config(
-        epochs=50,
-        wd=wd * 0.2,
-        d_hidden=512,
-        n_layer=1,
-        residual=False,
-        seed=i,
-    ).to(device)
+    for wd, i in product(range(6), range(6)):
+        mnist = Model.from_config(
+            epochs=50,
+            wd=wd * 0.2,
+            d_hidden=512,
+            n_layer=1,
+            residual=False,
+            # Fixed seed: tying the seed to the noise index would confound
+            # noise effects with initialization effects.
+            seed=42,
+        ).to(device)
 
-    # Input noise increases with index i
-    transform = nn.Sequential(
-        RandomGaussianNoise(mean=0, std=0.2 * i, p=1),
-    )
+        # Input noise increases with index i
+        transform = nn.Sequential(
+            RandomGaussianNoise(mean=0, std=0.2 * i, p=1),
+        )
 
-    train, test = MNIST(train=True), MNIST(train=False)
-    mnist.fit(train, test, transform)
+        train, test = MNIST(train=True), MNIST(train=False)
+        mnist.fit(train, test, transform)
 
-    # Decompose trained model
-    vals, vecs = mnist.decompose()
+        # Decompose trained model
+        vals, vecs = mnist.decompose()
 
-    # Store eigenvalues and eigenvectors
-    avals[wd, i] = vals
-    avecs[wd, i] = vecs
+        # Store eigenvalues and the top-5 eigenvectors.
+        # eigh returns eigenvalues in ascending order, so the most positive
+        # eigenvectors are the LAST five; flip to get rank 0 = largest.
+        avals[wd, i] = vals
+        avecs[wd, i] = vecs[:, -5:, :].flip(1)
 
-# =====================================
-# Disable gradients (analysis phase)
-# =====================================
+    torch.set_grad_enabled(False)
 
-torch.set_grad_enabled(False)
+    save_file(dict(vals=avals, vecs=avecs), CACHE)
 
 # =====================================
 # Eigenvalue sparsity analysis
@@ -115,8 +125,9 @@ fig.write_image(HERE / "eigenval_sparsity.png", scale=4)
 # Eigenvector sparsity analysis
 # =====================================
 
-l2 = avecs[..., :5, :].pow(2).sum(-1).sqrt()
-l1 = avecs[..., :5, :].abs().sum(-1)
+# avecs already holds only the top-5 positive eigenvectors (see above)
+l2 = avecs.pow(2).sum(-1).sqrt()
+l1 = avecs.abs().sum(-1)
 
 fig = px.imshow(
     (l1 / l2).pow(2).mean(-1).mean(-1).flip(0).cpu(),
@@ -144,65 +155,3 @@ fig.update_layout(
 )
 
 fig.write_image(HERE / "eigenvec_sparsity.png", scale=4)
-
-# =====================================
-# Example eigenspectra for selected settings
-# =====================================
-
-# fig = make_subplots(
-#     rows=2,
-#     cols=2,
-#     subplot_titles=[
-#         "wd=0, noise=0",
-#         "wd=0, noise=1",
-#         "wd=1, noise=0",
-#         "wd=1, noise=1",
-#     ],
-#     vertical_spacing=0.08,
-# )
-
-# # Top-left: wd=0, noise=0
-# for i in range(10):
-#     fig.add_scatter(
-#         y=avals[0, 0, i].cpu(),
-#         mode="lines",
-#         showlegend=False,
-#         row=1,
-#         col=1,
-#     )
-
-# # Top-right: wd=0, noise=max
-# for i in range(10):
-#     fig.add_scatter(
-#         y=avals[0, -1, i].cpu(),
-#         mode="lines",
-#         showlegend=False,
-#         row=1,
-#         col=2,
-#     )
-
-# # Bottom-left: wd=max, noise=0
-# for i in range(10):
-#     fig.add_scatter(
-#         y=avals[-1, 0, i].cpu(),
-#         mode="lines",
-#         showlegend=False,
-#         row=2,
-#         col=1,
-#     )
-
-# # Bottom-right: wd=max, noise=max
-# for i in range(10):
-#     fig.add_scatter(
-#         y=avals[-1, -1, i].cpu(),
-#         mode="lines",
-#         showlegend=False,
-#         row=2,
-#         col=2,
-#     )
-
-# fig.update_layout(
-#     height=700,
-#     width=800,
-#     margin=dict(l=20, r=20, b=20, t=20),
-# )

@@ -1,6 +1,12 @@
-# =====================================
-# Imports and global setup
-# =====================================
+# ============================================================
+# Appendix D — HOSVD: finding the most important shared features
+# Reproduces Figures 17–18 from Pearce et al. (2025).
+#
+# Trains a single MNIST model, flattens the bilinear tensor's two
+# input dimensions, runs an SVD to find the dominant output
+# directions, and eigendecomposes each direction's interaction
+# matrix. Produces hosvd_0.png … hosvd_9.png (one per direction).
+# ============================================================
 
 import os
 from pathlib import Path
@@ -14,6 +20,7 @@ from kornia.augmentation import RandomGaussianNoise
 from plotly.subplots import make_subplots
 from torch import nn
 
+# Run from repo root so ./data always maps to <repo>/data
 os.chdir(Path(__file__).resolve().parents[3])
 HERE = Path(__file__).parent
 
@@ -31,12 +38,12 @@ color = dict(
 
 transform = nn.Sequential(
     RandomGaussianNoise(mean=0, std=0.5, p=1),
-    # RandomAffine(degrees=0, translate=(0.25, 0.25), p=1),
 )
 
 model = Model.from_config(
     epochs=50,
     wd=1.0,
+    d_hidden=512,
     n_layer=1,
     residual=False,
     seed=42,
@@ -75,13 +82,13 @@ b = b.cpu()
 # HOSVD / spectral decomposition
 # =====================================
 
-dims = b.shape
-
-# Flatten input dimensions and perform SVD
+# Flatten the two input dimensions and perform a standard SVD
+# (the "simplest approach" of paper Section 3.3)
 u, s, v = torch.svd(b.flatten(1))
 
-# Eigen-decomposition of reshaped right singular vectors
-vals, vecs = torch.linalg.eigh(v.T.view(b.shape))
+# Each right singular vector, reshaped to (d_embed, d_embed), is an
+# interaction matrix; eigendecompose them all at once
+vals, vecs = torch.linalg.eigh(v.T.reshape(b.shape))
 
 # Project eigenvectors back to input space
 vecs = einsum(
@@ -97,18 +104,10 @@ vecs = einsum(
 pos = px.colors.qualitative.Plotly[1]
 neg = px.colors.qualitative.Plotly[0]
 
-# Appendix D contains visualizations for directions 0 and 1
-feature = 0  # choose the important direction to visualize
-
-colors = [
-    pos if x > 0.3 else neg if x < -0.3 else "grey"
-    for x in u[:, feature]
-]
-
 text = list(range(10))
 
 # =====================================
-# Create figure layout
+# One figure per singular direction
 # =====================================
 
 rows, cols = 2, 5
@@ -118,164 +117,154 @@ titles = [
     "<b>-</b> eigenvalues", "", "<b>-</b> eigenvectors", "", "contributions",
 ]
 
-fig = make_subplots(
-    rows=rows,
-    cols=cols,
-    subplot_titles=titles,
-    vertical_spacing=0.12,
-    horizontal_spacing=0.05,
-)
+for feature in range(10):
+    # Colour the per-class contributions of this singular direction
+    colors = [
+        pos if x > 0.3 else neg if x < -0.3 else "grey"
+        for x in u[:, feature]
+    ]
 
-fig.update_xaxes(visible=False)
-fig.update_yaxes(visible=False)
+    fig = make_subplots(
+        rows=rows,
+        cols=cols,
+        subplot_titles=titles,
+        vertical_spacing=0.12,
+        horizontal_spacing=0.05,
+    )
 
-fig.update_layout(
-    height=350,
-    width=800,
-    margin=dict(l=0, r=0, b=0, t=30),
-)
+    fig.update_xaxes(visible=False)
+    fig.update_yaxes(visible=False)
 
-fig.update_annotations(font_size=13)
+    fig.update_layout(
+        height=350,
+        width=800,
+        margin=dict(l=0, r=0, b=0, t=30),
+    )
 
-# =====================================
-# Singular value plot
-# =====================================
+    fig.update_annotations(font_size=13)
 
-fig.add_scatter(
-    y=s,
-    showlegend=False,
-    mode="lines",
-    marker=dict(color="grey"),
-    row=1,
-    col=cols,
-)
-
-fig.add_scatter(
-    x=[feature],
-    y=s[feature, None],
-    showlegend=False,
-    mode="markers",
-    marker=dict(color="grey"),
-    row=1,
-    col=cols,
-)
-
-fig.update_yaxes(
-    visible=True,
-    ticktext=["0", f"{s[feature]:.2f}"],
-    tickvals=[0, s[feature]],
-    range=(0, 0.7),
-    row=1,
-    col=cols,
-)
-
-# =====================================
-# Eigenvalue spectra
-# =====================================
-
-# Positive eigenvalues
-fig.add_scatter(
-    y=vals[feature, -22:].flip(0),
-    showlegend=False,
-    mode="lines",
-    marker=dict(color=pos),
-    row=1,
-    col=1,
-)
-
-fig.add_scatter(
-    y=vals[feature, -3:].flip(0),
-    showlegend=False,
-    mode="markers",
-    marker=dict(color=pos),
-    row=1,
-    col=1,
-)
-
-# Negative eigenvalues
-fig.add_scatter(
-    y=vals[feature, :22],
-    showlegend=False,
-    mode="lines",
-    marker=dict(color=neg),
-    row=2,
-    col=1,
-)
-
-fig.add_scatter(
-    y=vals[feature, :3],
-    showlegend=False,
-    mode="markers",
-    marker=dict(color=neg),
-    row=2,
-    col=1,
-)
-
-fig.update_xaxes(
-    visible=True,
-    tickvals=[20],
-    ticktext=["20"],
-    zeroline=False,
-    col=1,
-)
-
-fig.update_yaxes(
-    visible=True,
-    tickvals=[0, vals[feature, -1]],
-    ticktext=["0", f"{vals[feature, -1]:.2f}"],
-    row=1,
-    col=1,
-)
-
-fig.update_yaxes(
-    visible=True,
-    tickvals=[0, vals[feature, 0]],
-    ticktext=["0", f"{vals[feature, 0]:.2f}"],
-    row=2,
-    col=1,
-)
-
-# =====================================
-# Singular vector contributions
-# =====================================
-
-fig.add_bar(
-    y=u[:, feature],
-    showlegend=False,
-    marker_color=colors,
-    text=text,
-    textposition="outside",
-    textfont=dict(size=12),
-    row=2,
-    col=cols,
-)
-
-fig.update_yaxes(range=[-1, 1], row=2, col=cols)
-
-# =====================================
-# Eigenvector visualizations
-# =====================================
-
-for i in range(3):
-    fig.add_heatmap(
-        z=vecs[feature, -i - 1].view(28, 28).flip(0),
+    # ── Singular value plot ──────────────────────────────────
+    fig.add_scatter(
+        y=s,
+        showlegend=False,
+        mode="lines",
+        marker=dict(color="grey"),
         row=1,
-        col=i + 2,
-        colorscale="RdBu",
-        zmid=0,
-        showscale=False,
+        col=cols,
     )
-    fig.add_heatmap(
-        z=vecs[feature, i].view(28, 28).flip(0),
+
+    fig.add_scatter(
+        x=[feature],
+        y=s[feature, None],
+        showlegend=False,
+        mode="markers",
+        marker=dict(color="grey"),
+        row=1,
+        col=cols,
+    )
+
+    fig.update_yaxes(
+        visible=True,
+        ticktext=["0", f"{s[feature]:.2f}"],
+        tickvals=[0, s[feature]],
+        range=(0, 0.7),
+        row=1,
+        col=cols,
+    )
+
+    # ── Eigenvalue spectra ───────────────────────────────────
+    fig.add_scatter(
+        y=vals[feature, -22:].flip(0),
+        showlegend=False,
+        mode="lines",
+        marker=dict(color=pos),
+        row=1,
+        col=1,
+    )
+
+    fig.add_scatter(
+        y=vals[feature, -3:].flip(0),
+        showlegend=False,
+        mode="markers",
+        marker=dict(color=pos),
+        row=1,
+        col=1,
+    )
+
+    fig.add_scatter(
+        y=vals[feature, :22],
+        showlegend=False,
+        mode="lines",
+        marker=dict(color=neg),
         row=2,
-        col=i + 2,
-        colorscale="RdBu",
-        zmid=0,
-        showscale=False,
+        col=1,
     )
 
-# =====================================
-# Save figure
-# =====================================
+    fig.add_scatter(
+        y=vals[feature, :3],
+        showlegend=False,
+        mode="markers",
+        marker=dict(color=neg),
+        row=2,
+        col=1,
+    )
 
-fig.write_image(HERE / f"hosvd_{feature}.png")
+    fig.update_xaxes(
+        visible=True,
+        tickvals=[20],
+        ticktext=["20"],
+        zeroline=False,
+        col=1,
+    )
+
+    fig.update_yaxes(
+        visible=True,
+        tickvals=[0, vals[feature, -1]],
+        ticktext=["0", f"{vals[feature, -1]:.2f}"],
+        row=1,
+        col=1,
+    )
+
+    fig.update_yaxes(
+        visible=True,
+        tickvals=[0, vals[feature, 0]],
+        ticktext=["0", f"{vals[feature, 0]:.2f}"],
+        row=2,
+        col=1,
+    )
+
+    # ── Per-class contributions of the singular direction ────
+    fig.add_bar(
+        y=u[:, feature],
+        showlegend=False,
+        marker_color=colors,
+        text=text,
+        textposition="outside",
+        textfont=dict(size=12),
+        row=2,
+        col=cols,
+    )
+
+    fig.update_yaxes(range=[-1, 1], row=2, col=cols)
+
+    # ── Top eigenvector heatmaps ─────────────────────────────
+    for i in range(3):
+        fig.add_heatmap(
+            z=vecs[feature, -i - 1].view(28, 28).flip(0),
+            row=1,
+            col=i + 2,
+            colorscale="RdBu",
+            zmid=0,
+            showscale=False,
+        )
+        fig.add_heatmap(
+            z=vecs[feature, i].view(28, 28).flip(0),
+            row=2,
+            col=i + 2,
+            colorscale="RdBu",
+            zmid=0,
+            showscale=False,
+        )
+
+    fig.write_image(HERE / f"hosvd_{feature}.png")
+    print(f"Saved hosvd_{feature}.png")

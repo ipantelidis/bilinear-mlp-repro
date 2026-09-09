@@ -1,5 +1,16 @@
 # ============================================================
-# Imports 
+# Figure 7 — Adversarial masks from eigenvectors
+# Reproduces Figure 7 from Pearce et al. (2025).
+#
+# Builds adversarial masks from the pseudoinverse of the top
+# eigenvectors (no gradients, no per-input optimization) and
+# measures test-set accuracy / targeted misclassification against
+# a matched random-mask baseline, for two regimes:
+#   1: noise-regularized model, permuted-mask baseline
+#   2: unregularized model, mask restricted to rarely-active
+#      border pixels, Gaussian-resampled baseline
+# Produces fig_07a{1,2}.png, fig_07b{1,2}.png and
+# fig_07_results_{1,2}.json.
 # ============================================================
 import os
 from collections import defaultdict
@@ -9,8 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from einops import einsum, rearrange
-from image.datasets import MNIST
-from image.model import Model
+from image import MNIST, Model
 from kornia.augmentation import RandomGaussianNoise
 from mpl_toolkits.axes_grid1 import ImageGrid
 
@@ -27,13 +37,11 @@ torch.set_grad_enabled(True)
 VMIN_DEC, VMAX_DEC = -0.25, 0.25
 VMIN_ENC, VMAX_ENC = -0.50, 0.50
 
-DIGIT = 3
-TOPK = 10
-IDX = -2
-IDX_EX = 0
-STRENGTH = 0.15
-
-IDXs = torch.arange(-3, 0).flip(0)
+DIGIT = 3       # digit whose eigenvector mask is shown in the 4-panel figure
+TOPK = 10       # eigenvectors per class entering the pseudoinverse
+IDX = -2        # eigenvector index used for the shown mask
+IDX_EX = 0      # training example shown with the mask applied
+STRENGTH = 0.15 # mask standard deviation for the 4-panel figure
 
 # ============================================================
 # Experiment definitions
@@ -61,13 +69,13 @@ test  = MNIST(train=False)
 # Helper: evaluation
 # ============================================================
 def evaluate_mask(model, mask, digit, strength):
-    inputs = train.x.cpu()
+    # Evaluate on the held-out test set, not the training data.
+    inputs = test.x.cpu()
 
-    if cfg["noise"] != None:
-        mask_rand = mask.clone()
+    if cfg["random_mode"] == "permute":
         perm = torch.randperm(len(mask))
         mask_rand = mask[perm]
-    else:
+    else:  # "gaussian"
         mask_rand = mask.clone()
         mask_rand[mask_rand > 0] = strength * torch.randn((mask_rand > 0).sum())
 
@@ -85,8 +93,8 @@ def evaluate_mask(model, mask, digit, strength):
     metrics = {}
     for k, v in logits.items():
         preds = v.argmax(dim=-1)
-        metrics[f"acc_{k}"] = (preds == train.y.cpu()).float().mean()
-        metrics[f"mis_{k}"] = ((preds == digit) & (train.y.cpu() != digit)).float().mean()
+        metrics[f"acc_{k}"] = (preds == test.y.cpu()).float().mean()
+        metrics[f"mis_{k}"] = ((preds == digit) & (test.y.cpu() != digit)).float().mean()
 
     return metrics
 
@@ -230,7 +238,9 @@ for tag, cfg in EXPERIMENTS.items():
     for d in range(10):
         for e, ei in enumerate(eig_idxs):
             for s, st in enumerate(strengths):
-                m = encoders_px_plt[d, ei]
+                # clone: dividing in place would corrupt the stored tensor
+                # for subsequent strength iterations
+                m = encoders_px_plt[d, ei].clone()
                 m /= m.std()
                 m = st * m
                 metrics = evaluate_mask(model, m, d, st)
@@ -264,5 +274,22 @@ for tag, cfg in EXPERIMENTS.items():
     plt.tight_layout()
     plt.savefig(HERE / f"fig_07b{tag}.png", bbox_inches="tight")
     plt.close()
+
+    # ========================================================
+    # Serialize quantitative results
+    # ========================================================
+    import json
+
+    summary = {"strengths": strengths.tolist(), "config": cfg}
+    for key in eval_metrics:
+        vals = eval_metrics[key].view(-1, len(strengths))
+        summary[f"{key}_mean"] = vals.mean(0).tolist()
+        summary[f"{key}_std"] = vals.std(0).tolist()
+    summary["per_digit_acc_adv"] = eval_metrics["acc_adv"].mean(dim=(1, 2)).tolist()
+    summary["per_digit_mis_adv"] = eval_metrics["mis_adv"].mean(dim=(1, 2)).tolist()
+
+    with open(HERE / f"fig_07_results_{tag}.json", "w") as f:
+        json.dump(summary, f, indent=2)
+    print(f"Saved {HERE / f'fig_07_results_{tag}.json'}")
 
     torch.set_grad_enabled(True)

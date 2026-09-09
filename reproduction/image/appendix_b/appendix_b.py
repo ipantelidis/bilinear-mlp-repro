@@ -1,19 +1,28 @@
-# =====================================
-# Imports and global setup
-# =====================================
+# ============================================================
+# Appendix B — Regularization & augmentation ablations
+# Reproduces Figure 14 from Pearce et al. (2025).
+#
+# Trains a grid of MNIST bilinear models sweeping one augmentation
+# axis (blur, rotation or translation) against input-noise level,
+# and shows how digit 0's top eigenvector changes across the grid,
+# annotated with test accuracies.
+#
+# Select the axis with APPENDIX_B_AXIS=blur|rotation|translation
+# (default: blur). Produces {axis}.png; trained eigenvectors are
+# cached in {axis}.safetensors.
+# ============================================================
 import os
 from collections import namedtuple
 from itertools import product
 from pathlib import Path
 
-import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
 import torch
 from einops import *
 from image import MNIST, Model
 from kornia.augmentation import (RandomAffine, RandomGaussianBlur,
-                                 RandomGaussianNoise, RandomSaltAndPepperNoise)
+                                 RandomGaussianNoise)
 from plotly.subplots import make_subplots
 from safetensors.torch import load_file, save_file
 from torch import nn
@@ -35,86 +44,88 @@ color = dict(
 # Parameter grid definition
 # =====================================
 
+# Select experiment axis: "blur", "rotation" or "translation".
+# Everything downstream (grid, transform, cache file, figure) follows from it.
+name = os.environ.get("APPENDIX_B_AXIS", "blur")
+
 Params = namedtuple(
     'Params',
     ['rotation', 'translation', 'noise', 'blur', 'pepper', 'dropout'],
     defaults=(None,) * 6,
 )
 
-# Select experiment axis
-params = Params(noise=3, blur=5)
-# params = Params(noise=3, rotation=5)
-# params = Params(noise=3, translation=5)
+axis_params = {
+    "blur": Params(noise=3, blur=5),
+    "rotation": Params(noise=3, rotation=5),
+    "translation": Params(noise=3, translation=5),
+}[name]
 
 params = {
     k: range(v) if v is not None else [0]
-    for k, v in params._asdict().items()
+    for k, v in axis_params._asdict().items()
 }
 
 shape = [len(v) for v in params.values()]
 
 # =====================================
-# Preallocate storage
+# Run experiments (cached)
 # =====================================
 
-all_vecs = torch.empty(shape + [10, 10, 28 * 28])
-all_vals = torch.empty(shape + [10, 512])
-all_accs = torch.empty(shape)
+if (HERE / f"{name}.safetensors").exists():
+    print(f"Loading cached {name}.safetensors — delete it to retrain.")
+else:
+    all_vecs = torch.empty(shape + [10, 10, 28 * 28])
+    all_vals = torch.empty(shape + [10, 512])
+    all_accs = torch.empty(shape)
 
-train, test = MNIST(train=True), MNIST(train=False)
+    train, test = MNIST(train=True), MNIST(train=False)
 
-# =====================================
-# Run experiments
-# =====================================
+    torch.set_grad_enabled(True)
 
-torch.set_grad_enabled(True)
+    for run in [Params(*values) for values in product(*params.values())]:
+        print(run)
 
-for run in [Params(*values) for values in product(*params.values())]:
-    print(run)
+        rotation, translation, noise, blur, pepper, dropout = run
 
-    rotation, translation, noise, blur, pepper, dropout = run
+        layers = [RandomGaussianNoise(mean=0, std=noise * 0.2, p=1)]
+        if name == "blur":
+            layers.append(RandomGaussianBlur(
+                kernel_size=5,
+                sigma=(0.01 + 0.2 * blur, 0.01 + 0.2 * blur),
+                p=1,
+            ))
+        else:
+            layers.append(RandomAffine(
+                degrees=rotation * 8,
+                translate=(translation * 0.05, translation * 0.05) if translation else None,
+                p=1.0,
+            ))
+        transform = nn.Sequential(*layers)
 
-    transform = nn.Sequential(
-        RandomGaussianNoise(mean=0, std=noise * 0.2, p=1),
-        # Comment if not using blur
-        RandomGaussianBlur(
-            kernel_size=5,
-            sigma=(0.01 + 0.2 * blur, 0.01 + 0.2 * blur), 
-            p=1,
-        ),
-        # Uncomment if using rotation/translation
-        # RandomAffine(degrees=rotation * 8, translate=translation * 0.05, p=1.0),
+        model = Model.from_config(
+            epochs=50,
+            wd=1.0,
+            d_hidden=512,
+            n_layer=1,
+            residual=False,
+        ).cuda()
+
+        metrics = model.fit(train, test, transform)
+        vals, vecs = model.decompose()
+
+        acc = metrics["val/acc"].iloc[-1]
+
+        idx = tuple(getattr(run, k) for k in Params._fields)
+        all_vecs[idx] = vecs[..., -10:, :]
+        all_vals[idx] = vals
+        all_accs[idx] = acc
+
+    torch.set_grad_enabled(False)
+
+    save_file(
+        dict(vecs=all_vecs, vals=all_vals, accs=all_accs),
+        HERE / f"{name}.safetensors",
     )
-
-    model = Model.from_config(
-        epochs=50,
-        wd=1.0,
-        n_layer=1,
-        residual=False,
-    ).cuda()
-
-    metrics = model.fit(train, test, transform)
-    vals, vecs = model.decompose()
-
-    acc = metrics["val/acc"].iloc[-1]
-
-    idx = tuple(getattr(run, k) for k in Params._fields)
-    all_vecs[idx] = vecs[..., -10:, :]
-    all_vals[idx] = vals
-    all_accs[idx] = acc
-
-torch.set_grad_enabled(False)
-
-# =====================================
-# Cache results
-# =====================================
-
-name = "blur"  # or "rotation" or "translation"
-
-save_file(
-    dict(vecs=all_vecs, vals=all_vals, accs=all_accs),
-    HERE / f"{name}.safetensors",
-)
 
 tensors = load_file(HERE / f"{name}.safetensors")
 all_vecs = tensors["vecs"]

@@ -1,6 +1,12 @@
-# =====================================
-# Imports and global setup
-# =====================================
+# ============================================================
+# Figure 4 — Top eigenvector under increasing input noise
+# Reproduces Figure 4 from Pearce et al. (2025).
+#
+# Trains five MNIST bilinear models with Gaussian input noise
+# std 0.0 … 0.8 and shows how digit 0's top eigenvector cleans up
+# as regularization increases, annotated with each model's test
+# accuracy. Produces fig_04.png.
+# ============================================================
 
 import os
 from pathlib import Path
@@ -8,7 +14,6 @@ from pathlib import Path
 import plotly.express as px
 import plotly.io as pio
 import torch
-from einops import *
 from image import MNIST, Model
 from kornia.augmentation import RandomGaussianNoise
 from torch import nn

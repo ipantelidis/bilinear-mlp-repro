@@ -1,6 +1,11 @@
-# =====================================
-# Imports and global setup
-# =====================================
+# ============================================================
+# Appendix A — Eigenspectra: eigenvectors across digits
+# Reproduces Figures 10–12 from Pearce et al. (2025).
+#
+# Trains one MNIST bilinear model (same setup as Figure 2) and
+# plots the top positive/negative eigenvectors plus eigenvalue
+# spectrum for every digit. Produces digit_0.png … digit_9.png.
+# ============================================================
 
 import os
 from pathlib import Path
@@ -38,7 +43,6 @@ model = Model.from_config(
 
 transform = nn.Sequential(
     RandomGaussianNoise(mean=0, std=0.5, p=1),
-    # RandomAffine(degrees=0, translate=(0.25, 0.25), p=1),
 )
 
 # =====================================
@@ -66,5 +70,5 @@ for digit in range(10):
 
     fig.write_image(HERE / f"digit_{digit}.png", scale=4)
 
-    print(f"Saved {out_path}")
+    print(f"Saved {HERE / f'digit_{digit}.png'}")
 

@@ -1,13 +1,19 @@
-# =====================================
-# Imports and global setup
-# =====================================
+# ============================================================
+# Appendix C — Explainability: per-example eigenvector analysis
+# Reproduces Figures 15–16 from Pearce et al. (2025).
+#
+# Trains one MNIST bilinear model (same setup as Figure 2) and
+# explains two test examples through their eigenvector activations:
+# a correctly classified 5 (test sample 8) and a 2 misclassified
+# as 7 (test sample 321). Produces correctly_classified_5.png and
+# misclassified_2.png.
+# ============================================================
 
 import os
 from pathlib import Path
 
 import plotly.io as pio
 import torch
-from einops import *
 from image import MNIST, Model, plot_explanation
 from kornia.augmentation import RandomGaussianNoise
 from torch import nn
@@ -30,6 +36,7 @@ color = dict(
 mnist = Model.from_config(
     epochs=100,
     wd=1.0,
+    d_hidden=512,
     n_layer=1,
     residual=False,
     seed=420,
