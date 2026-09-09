@@ -1,0 +1,25 @@
+{
+  "constant_epochs": {
+    "bilinear": 1.2373000324465508,
+    "reglu": 1.2415897716269937,
+    "swiglu": 1.2310353716792062
+  },
+  "constant_time": {
+    "bilinear": 1.227648787200451,
+    "reglu": 1.2307136505842209,
+    "swiglu": 1.2225475497543812
+  },
+  "cutoff_seconds": 19151.787789583206,
+  "paper": {
+    "constant_epochs": {
+      "bilinear": 1.337,
+      "reglu": 1.332,
+      "swiglu": 1.321
+    },
+    "constant_time": {
+      "bilinear": 1.337,
+      "reglu": 1.337,
+      "swiglu": 1.336
+    }
+  }
+}
