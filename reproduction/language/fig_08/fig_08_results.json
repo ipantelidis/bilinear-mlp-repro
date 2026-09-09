@@ -1,0 +1,11 @@
+{
+  "panel_c_correlation_active_only": 0.5352038741111755,
+  "n_active_tokens": 96118,
+  "top_positive_eigenvalue": 0.6221678256988525,
+  "top_negative_eigenvalue": -0.6628134250640869,
+  "paper": {
+    "correlation": 0.66,
+    "top_positive_eigenvalue": 0.62,
+    "top_negative_eigenvalue": -0.66
+  }
+}
