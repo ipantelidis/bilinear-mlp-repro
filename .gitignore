@@ -1,7 +1,22 @@
-language/__pycache__
-shared/__pycache__
-sae/__pycache__
-image/__pycache__
-toy/__pycache__
+original/language/__pycache__
+original/shared/__pycache__
+original/sae/__pycache__
+original/image/__pycache__
+original/toy/__pycache__
 data/*
 .vscode/*
+
+extension_full
+
+# Reproduction: large regenerable caches, run logs, training checkpoints
+reproduction/language/fig_09/cache_*.safetensors
+reproduction/language/fig_09/scatter_*.pt
+reproduction/language/fig_09/stale_cache/
+reproduction/language/appendix_h/cache_*.safetensors
+reproduction/language/appendix_i/tokens_*.pt
+reproduction/language/appendix_j/ckpt_*.pt
+reproduction/**/rerun*.log
+reproduction/**/replot.log
+reproduction/**/full_run.log
+reproduction/**/smoke.log
+__pycache__/

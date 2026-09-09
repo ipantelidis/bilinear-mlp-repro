@@ -1,12 +1,35 @@
+# Core ML
+torch>=2.0.0
+torchvision
 einops
-torch
-transformers
 jaxtyping
-pandas
+
+# HuggingFace ecosystem
+transformers>=4.35.0
 datasets
-wandb
-torch
+huggingface_hub
+safetensors
 accelerate
-bidict
-nnsight
+
+# Plotting
+matplotlib
+plotly
+kaleido          # required for plotly static image export
+
+# Numerics / stats
+numpy
+scipy
+pandas
+
+# Augmentation
 kornia
+
+# Language model utilities
+bidict           # used by language/utils.py Vocab
+nnsight          # activation patching (language experiments)
+
+# SAE training
+wandb            # experiment logging for SAE training
+
+# Optional speedup
+opt_einsum       # faster einsum for Q matrix computation
