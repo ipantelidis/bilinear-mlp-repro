@@ -1,0 +1,65 @@
+{
+  "roundtrip_accuracy": 6,
+  "per_class": [
+    {
+      "class": 0,
+      "nearest": 0,
+      "correct": true,
+      "cos_zdec_classmean": -0.9356672167778015
+    },
+    {
+      "class": 1,
+      "nearest": 8,
+      "correct": false,
+      "cos_zdec_classmean": 0.6164106726646423
+    },
+    {
+      "class": 2,
+      "nearest": 2,
+      "correct": true,
+      "cos_zdec_classmean": -0.8235780596733093
+    },
+    {
+      "class": 3,
+      "nearest": 3,
+      "correct": true,
+      "cos_zdec_classmean": -0.7337470650672913
+    },
+    {
+      "class": 4,
+      "nearest": 7,
+      "correct": false,
+      "cos_zdec_classmean": -0.4527703523635864
+    },
+    {
+      "class": 5,
+      "nearest": 0,
+      "correct": false,
+      "cos_zdec_classmean": -0.40827763080596924
+    },
+    {
+      "class": 6,
+      "nearest": 2,
+      "correct": false,
+      "cos_zdec_classmean": 0.7227128744125366
+    },
+    {
+      "class": 7,
+      "nearest": 7,
+      "correct": true,
+      "cos_zdec_classmean": 0.7664867043495178
+    },
+    {
+      "class": 8,
+      "nearest": 8,
+      "correct": true,
+      "cos_zdec_classmean": -0.7069491147994995
+    },
+    {
+      "class": 9,
+      "nearest": 9,
+      "correct": true,
+      "cos_zdec_classmean": -0.7003962993621826
+    }
+  ]
+}

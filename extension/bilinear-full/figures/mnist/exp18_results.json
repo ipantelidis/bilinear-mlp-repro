@@ -1,0 +1,120 @@
+{
+  "per_ckpt": {
+    "main": {
+      "eigvec_similarity_raw": 0.8075095415115356,
+      "eigvec_similarity_centered": 0.4053947329521179,
+      "causal_raw": 6,
+      "causal_centered": 9,
+      "landing_centered": [
+        0,
+        1,
+        2,
+        3,
+        9,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    "seed0": {
+      "eigvec_similarity_raw": 0.8132193088531494,
+      "eigvec_similarity_centered": 0.3818584978580475,
+      "causal_raw": 4,
+      "causal_centered": 9,
+      "landing_centered": [
+        0,
+        1,
+        2,
+        3,
+        9,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    "seed1": {
+      "eigvec_similarity_raw": 0.8184196352958679,
+      "eigvec_similarity_centered": 0.38763219118118286,
+      "causal_raw": 4,
+      "causal_centered": 10,
+      "landing_centered": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    "seed2": {
+      "eigvec_similarity_raw": 0.8327335119247437,
+      "eigvec_similarity_centered": 0.40361082553863525,
+      "causal_raw": 4,
+      "causal_centered": 9,
+      "landing_centered": [
+        0,
+        1,
+        2,
+        3,
+        9,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    "seed3": {
+      "eigvec_similarity_raw": 0.820997953414917,
+      "eigvec_similarity_centered": 0.39133045077323914,
+      "causal_raw": 5,
+      "causal_centered": 10,
+      "landing_centered": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    "seed4": {
+      "eigvec_similarity_raw": 0.8444826602935791,
+      "eigvec_similarity_centered": 0.3912183940410614,
+      "causal_raw": 5,
+      "causal_centered": 10,
+      "landing_centered": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    }
+  },
+  "eigvec_similarity_raw_mean": 0.8228937685489655,
+  "eigvec_similarity_raw_std": 0.012361111005865223,
+  "eigvec_similarity_centered_mean": 0.393507515390714,
+  "eigvec_similarity_centered_std": 0.00840219761176413,
+  "causal_raw_mean": 4.666666666666667,
+  "causal_raw_std": 0.7453559924999298,
+  "causal_centered_mean": 9.5,
+  "causal_centered_std": 0.5
+}

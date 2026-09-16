@@ -1,0 +1,69 @@
+{
+  "near_universal_cos": 0.8692974951532152,
+  "causal_accuracy": 2,
+  "causal_per_class": [
+    {
+      "class": 0,
+      "name": "T-shirt",
+      "nearest": 6,
+      "correct": false
+    },
+    {
+      "class": 1,
+      "name": "Trouser",
+      "nearest": 0,
+      "correct": false
+    },
+    {
+      "class": 2,
+      "name": "Pullover",
+      "nearest": 2,
+      "correct": true
+    },
+    {
+      "class": 3,
+      "name": "Dress",
+      "nearest": 6,
+      "correct": false
+    },
+    {
+      "class": 4,
+      "name": "Coat",
+      "nearest": 2,
+      "correct": false
+    },
+    {
+      "class": 5,
+      "name": "Sandal",
+      "nearest": 8,
+      "correct": false
+    },
+    {
+      "class": 6,
+      "name": "Shirt",
+      "nearest": 2,
+      "correct": false
+    },
+    {
+      "class": 7,
+      "name": "Sneaker",
+      "nearest": 8,
+      "correct": false
+    },
+    {
+      "class": 8,
+      "name": "Bag",
+      "nearest": 8,
+      "correct": true
+    },
+    {
+      "class": 9,
+      "name": "Boot",
+      "nearest": 8,
+      "correct": false
+    }
+  ],
+  "latent_alignment": 0.4239126488566399,
+  "decoder_seed_consistency": 0.9621316725015641,
+  "encoder_seed_consistency": 0.33247336918488146
+}

@@ -1,0 +1,66 @@
+{
+  "causal_accuracy_trained": 6,
+  "causal_accuracy_random": 1,
+  "trained_per_class": [
+    {
+      "class": 0,
+      "nearest": 0,
+      "correct": true,
+      "cos": 0.8394376039505005
+    },
+    {
+      "class": 1,
+      "nearest": 8,
+      "correct": false,
+      "cos": 0.46278586983680725
+    },
+    {
+      "class": 2,
+      "nearest": 2,
+      "correct": true,
+      "cos": 0.8658300638198853
+    },
+    {
+      "class": 3,
+      "nearest": 3,
+      "correct": true,
+      "cos": 0.766539990901947
+    },
+    {
+      "class": 4,
+      "nearest": 7,
+      "correct": false,
+      "cos": 0.4305424392223358
+    },
+    {
+      "class": 5,
+      "nearest": 0,
+      "correct": false,
+      "cos": 0.42263492941856384
+    },
+    {
+      "class": 6,
+      "nearest": 2,
+      "correct": false,
+      "cos": 0.44824856519699097
+    },
+    {
+      "class": 7,
+      "nearest": 7,
+      "correct": true,
+      "cos": 0.7158476114273071
+    },
+    {
+      "class": 8,
+      "nearest": 8,
+      "correct": true,
+      "cos": 0.6798104047775269
+    },
+    {
+      "class": 9,
+      "nearest": 9,
+      "correct": true,
+      "cos": 0.744662880897522
+    }
+  ]
+}
