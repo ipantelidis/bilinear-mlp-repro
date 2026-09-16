@@ -20,3 +20,10 @@ reproduction/**/replot.log
 reproduction/**/full_run.log
 reproduction/**/smoke.log
 __pycache__/
+# Extension: regenerable per-epoch checkpoints (train_epochs.py) and stale
+# partial-migration leftovers
+extension/bilinear-full/checkpoints/mnist/epochs/
+extension/checkpoints/
+extension/figures/
+extension/**/*_README_snippet.md
+extension/**/*.log
