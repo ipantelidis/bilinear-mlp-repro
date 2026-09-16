@@ -27,3 +27,10 @@ extension/checkpoints/
 extension/figures/
 extension/**/*_README_snippet.md
 extension/**/*.log
+# Manuscript: LaTeX build artifacts
+manuscript/main.aux
+manuscript/main.bbl
+manuscript/main.blg
+manuscript/main.log
+manuscript/main.out
+manuscript/main.pdf
