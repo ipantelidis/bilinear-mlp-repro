@@ -97,6 +97,16 @@ if __name__ == "__main__":
     print(f"\n  Overall rank-1: {overall:.3f} ± {np.std(rank1_vals):.3f}")
     print(f"  Pearce et al. classifier range: 0.80–0.90")
 
+    import json
+    with open("figures/mnist/exp08_results.json", "w") as f:
+        json.dump({"rank1_mean_overall": float(overall),
+                   "rank1_std": float(np.std(rank1_vals)),
+                   "rank1_by_class": {str(c): float(sim_by_class[c][0])
+                                       for c in classes},
+                   "sim_by_rank_by_class": {str(c): [float(v) for v in sim_by_class[c]]
+                                             for c in classes}}, f, indent=2)
+    print("  Saved → figures/mnist/exp08_results.json")
+
     # Figure
     cmap = plt.get_cmap("tab10")
     fig, ax = plt.subplots(figsize=(7, 4.5))

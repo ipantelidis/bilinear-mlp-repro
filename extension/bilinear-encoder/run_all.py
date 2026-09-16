@@ -25,6 +25,7 @@ EXPERIMENTS = {
     8:  "experiments.exp08_eigvec_consistency",
     9:  "experiments.exp09_fmnist",
     10: "experiments.exp10_adversarial_mask",
+    12: "experiments.exp12_kmnist",
 }
 
 DESCRIPTIONS = {
@@ -38,6 +39,7 @@ DESCRIPTIONS = {
     8:  "Eigenvector consistency     (analog of Pearce et al. Fig 5A)",
     9:  "Fashion-MNIST extension     (latent dict + causal + cross-class)",
     10: "Adversarial mask            (pseudoinverse steering)",
+    12: "KMNIST extension            (latent dict + causal + cross-class)",
 }
 
 

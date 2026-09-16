@@ -82,4 +82,16 @@ if __name__ == "__main__":
              for i in range(len(labels)) for j in range(i + 1, len(labels))]
     for sim, a, b in sorted(pairs, reverse=True)[:5]:
         print(f"    ({a}, {b}): {sim:.3f}")
+
+    import json
+    off = [float(mat[i, j]) for i in range(len(labels))
+           for j in range(len(labels)) if i != j]
+    with open("figures/mnist/exp03_results.json", "w") as f:
+        json.dump({"labels": [int(l) for l in labels],
+                   "matrix": [[float(v) for v in row] for row in mat],
+                   "offdiag_mean": sum(off) / len(off),
+                   "top5_pairs": [[int(a), int(b), float(s)]
+                                  for s, a, b in sorted(pairs, reverse=True)[:5]]},
+                  f, indent=2)
+    print("  Saved → figures/mnist/exp03_results.json")
     print("Done.")

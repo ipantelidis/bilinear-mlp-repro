@@ -191,9 +191,11 @@ if __name__ == "__main__":
     print(f"\n  V shape: {tuple(V.shape)}")
 
     print("\n  cos(v1, mask) per class:")
+    cos_v1_mask = {}
     for c in sorted(means.keys()):
         cos = float(torch.dot(eigvecs[c], masks[c]) /
                     (eigvecs[c].norm() * masks[c].norm() + 1e-8))
+        cos_v1_mask[str(c)] = cos
         print(f"    digit {c}: {cos:.3f}")
 
     print(f"\n  Running steering experiment (scales={SCALES})...")
@@ -205,6 +207,19 @@ if __name__ == "__main__":
         a = np.mean(list(adv[s].values()))
         r = np.mean(list(rand[s].values()))
         print(f"  σ={s:<5}  {a:>7.3f}  {r:>7.3f}  {a/r:>7.2f}×")
+
+    import json
+    with open("figures/mnist/exp10_results.json", "w") as f:
+        json.dump({"scales": [float(s) for s in SCALES],
+                   "cos_v1_mask_per_class": cos_v1_mask,
+                   "steering_adv_mean": {str(s): float(np.mean(list(adv[s].values())))
+                                          for s in SCALES},
+                   "steering_rand_mean": {str(s): float(np.mean(list(rand[s].values())))
+                                           for s in SCALES},
+                   "steering_adv_per_class": {str(s): {str(c): float(v)
+                                                        for c, v in adv[s].items()}
+                                               for s in SCALES}}, f, indent=2)
+    print("  Saved → figures/mnist/exp10_results.json")
 
     plot_mask_grid(model, means, masks, eigvecs)
     plot_steering(adv, rand)

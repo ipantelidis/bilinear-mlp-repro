@@ -98,6 +98,19 @@ if __name__ == "__main__":
         d = labels[int(row.argmax())]
         print(f"    suppressing {c} → most activates {d}  ({mat[i, labels.index(d)]:.3f})")
 
+    import json
+    strongest = {}
+    for i, c in enumerate(labels):
+        row = mat[i].copy(); row[i] = 0
+        d = labels[int(row.argmax())]
+        strongest[str(c)] = {"most_activates": int(d),
+                             "cos": float(mat[i, labels.index(d)])}
+    with open("figures/mnist/exp06_results.json", "w") as f:
+        json.dump({"labels": [int(l) for l in labels],
+                   "matrix": [[float(v) for v in row] for row in mat],
+                   "strongest_pair_per_class": strongest}, f, indent=2)
+    print("  Saved → figures/mnist/exp06_results.json")
+
     plot_negative_grid(neg_vecs, means)
     tick_labels = [str(l) for l in labels]
     plot_heatmap(

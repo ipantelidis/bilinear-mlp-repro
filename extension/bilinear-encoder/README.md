@@ -93,12 +93,13 @@ All figures are written to `figures/mnist/` or `figures/fashion_mnist/`.
 | 02 | `exp02_truncation.py` | Pearson r between true encoder activation and rank-k approximation vs. k. Analog of Pearce et al. Fig 5B. |
 | 03 | `exp03_cross_class.py` | Pairwise cosine similarity between top eigenvectors across all 10 digit classes. |
 | 04 | `exp04_semantic_diff.py` | Eigenvectors for contrastive directions μ\* = mean_A − mean_B for confusable pairs. |
-| 05 | `exp05_max_activating.py` | Causal test: encoding the top eigenvector lands in the correct class (9/10). Trained vs. random baseline. |
+| 05 | `exp05_max_activating.py` | Causal test: encoding the top eigenvector lands in the correct class (9/10; random-init baseline 4.4 ± 1.6 over 10 seeds). |
 | 06 | `exp06_negative_eigenvectors.py` | Cross-suppression map: does suppressing class c look like activating class d? |
 | 07 | `exp07_saliency.py` | Per-pixel sensitivity s(x) = \|2Qx\| without backpropagation, plus rank-k progression. |
 | 08 | `exp08_eigvec_consistency.py` | Cosine similarity of top eigenvectors across 5 training seeds. Analog of Pearce et al. Fig 5A. |
 | 09 | `exp09_fmnist.py` | Experiments 01, 05, 03 repeated on Fashion-MNIST. Direct comparison with Pearce et al. Fig 2B. |
 | 10 | `exp10_adversarial_mask.py` | Pseudoinverse masks steer encoder toward target class (67% at σ=1 vs. 4% random). Analog of Pearce et al. Section 4.4. |
+| 12 | `exp12_kmnist.py` | Experiments 01, 05, 03 repeated on KMNIST (10 Hiragana classes, high intra-class variability). Dataset-generality check. |
 
 ---
 
@@ -108,8 +109,9 @@ All figures are written to `figures/mnist/` or `figures/fashion_mnist/`.
 |---|---|---|
 | Consistency (exp 08) | **0.812 ± 0.060** mean \|cos sim\| across seeds | Classifiers: 0.80–0.90 ✓ replicates |
 | Truncation (exp 02) | Rank 10–15 for r > 0.90 | Classifiers: rank 3 — VAE needs more (distributional encoding) |
-| Max-activating MNIST (exp 05) | **9/10** trained vs **3/10** random | Novel experiment, no prior analog |
-| Max-activating FMNIST (exp 09) | **10/10** trained vs **6/10** random | Novel experiment |
+| Max-activating MNIST (exp 05) | **9/10** trained vs **4.4 ± 1.6** random (10 seeded inits) | Novel experiment, no prior analog |
+| Max-activating FMNIST (exp 09) | **10/10** trained vs **3.5 ± 1.9** random (10 seeded inits) | Novel experiment |
+| Max-activating KMNIST (exp 12) | **9/10** trained vs **3.5 ± 1.6** random (10 seeded inits) | Novel experiment |
 | Adversarial steering (exp 10) | **67%** at σ=1 vs **4%** random (19×) | Analog of Section 4.4 |
 
 ---

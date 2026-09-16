@@ -1,0 +1,142 @@
+{
+  "trained_correct": 9,
+  "random_correct_seed0": 6,
+  "random_correct_10init_mean": 4.4,
+  "random_correct_10init_std": 1.5620499351813308,
+  "random_correct_10init_counts": [
+    6,
+    3,
+    6,
+    3,
+    7,
+    5,
+    4,
+    2,
+    3,
+    5
+  ],
+  "trained": [
+    {
+      "class": 0,
+      "correct": true,
+      "nearest": 0,
+      "cos_to_true": 0.6203269362449646
+    },
+    {
+      "class": 1,
+      "correct": true,
+      "nearest": 1,
+      "cos_to_true": 0.8105951547622681
+    },
+    {
+      "class": 2,
+      "correct": true,
+      "nearest": 2,
+      "cos_to_true": 0.7213085889816284
+    },
+    {
+      "class": 3,
+      "correct": true,
+      "nearest": 3,
+      "cos_to_true": 0.7053340077400208
+    },
+    {
+      "class": 4,
+      "correct": true,
+      "nearest": 4,
+      "cos_to_true": 0.7776421904563904
+    },
+    {
+      "class": 5,
+      "correct": true,
+      "nearest": 5,
+      "cos_to_true": 0.8567545413970947
+    },
+    {
+      "class": 6,
+      "correct": true,
+      "nearest": 6,
+      "cos_to_true": 0.7553789019584656
+    },
+    {
+      "class": 7,
+      "correct": true,
+      "nearest": 7,
+      "cos_to_true": 0.7750140428543091
+    },
+    {
+      "class": 8,
+      "correct": false,
+      "nearest": 1,
+      "cos_to_true": 0.7553583383560181
+    },
+    {
+      "class": 9,
+      "correct": true,
+      "nearest": 9,
+      "cos_to_true": 0.8039029240608215
+    }
+  ],
+  "random": [
+    {
+      "class": 0,
+      "correct": true,
+      "nearest": 0,
+      "cos_to_true": 0.9634730219841003
+    },
+    {
+      "class": 1,
+      "correct": false,
+      "nearest": 0,
+      "cos_to_true": 0.9683457612991333
+    },
+    {
+      "class": 2,
+      "correct": false,
+      "nearest": 0,
+      "cos_to_true": 0.9614121913909912
+    },
+    {
+      "class": 3,
+      "correct": true,
+      "nearest": 3,
+      "cos_to_true": 0.990621030330658
+    },
+    {
+      "class": 4,
+      "correct": true,
+      "nearest": 4,
+      "cos_to_true": 0.9510793089866638
+    },
+    {
+      "class": 5,
+      "correct": false,
+      "nearest": 0,
+      "cos_to_true": 0.9842998385429382
+    },
+    {
+      "class": 6,
+      "correct": true,
+      "nearest": 6,
+      "cos_to_true": 0.9767066240310669
+    },
+    {
+      "class": 7,
+      "correct": true,
+      "nearest": 7,
+      "cos_to_true": 0.9694458246231079
+    },
+    {
+      "class": 8,
+      "correct": false,
+      "nearest": 0,
+      "cos_to_true": 0.9540936946868896
+    },
+    {
+      "class": 9,
+      "correct": true,
+      "nearest": 9,
+      "cos_to_true": 0.9658931493759155
+    }
+  ]
+}

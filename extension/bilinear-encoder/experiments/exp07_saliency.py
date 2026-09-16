@@ -35,6 +35,14 @@ RANKS      = [1, 3, 10]   # ranks shown in the progression figure
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+
+def _clean(ax):
+    """Hide ticks and frame but keep axis labels (axis('off') erases labels)."""
+    ax.set_xticks([]); ax.set_yticks([])
+    for s in ax.spines.values():
+        s.set_visible(False)
+
+
 def saliency_full(Q: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
     """Full saliency: |2 Q x|, shape (784,)."""
     return (2.0 * Q @ x).abs()
@@ -84,7 +92,7 @@ def plot_saliency_grid(model, means, examples) -> None:
         for i in range(N_EXAMPLES):
             axes[i, col].imshow(imgs[i].view(28, 28).numpy(), cmap="gray_r",
                                 vmin=0, vmax=1)
-            axes[i, col].axis("off")
+            _clean(axes[i, col])
             if i == 0:
                 axes[i, col].set_title(f"digit {c}", fontsize=9)
 
@@ -92,19 +100,19 @@ def plot_saliency_grid(model, means, examples) -> None:
         sal_full = torch.stack([saliency_full(Q, x) for x in imgs]).mean(0)
         s = sal_full.view(28, 28).numpy()
         axes[N_EXAMPLES, col].imshow(s, cmap="hot", vmin=0, vmax=s.max() + 1e-8)
-        axes[N_EXAMPLES, col].axis("off")
+        _clean(axes[N_EXAMPLES, col])
 
         # Rank-3 saliency
         sal_r3 = torch.stack([saliency_rank_k(vals, vecs, x, 3) for x in imgs]).mean(0)
         s3 = sal_r3.view(28, 28).numpy()
         axes[N_EXAMPLES + 1, col].imshow(s3, cmap="hot", vmin=0, vmax=s3.max() + 1e-8)
-        axes[N_EXAMPLES + 1, col].axis("off")
+        _clean(axes[N_EXAMPLES + 1, col])
 
         # Top eigenvector
         eig = v1.view(28, 28).numpy()
         vmax = max(abs(eig).max(), 1e-8)
         axes[N_EXAMPLES + 2, col].imshow(eig, cmap="RdBu_r", vmin=-vmax, vmax=vmax)
-        axes[N_EXAMPLES + 2, col].axis("off")
+        _clean(axes[N_EXAMPLES + 2, col])
 
     for row, lbl in enumerate(row_labels):
         axes[row, 0].set_ylabel(lbl, fontsize=8, rotation=90,
@@ -132,17 +140,17 @@ def plot_rank_progression(model, means, examples) -> None:
         x = examples[c][0]
 
         axes[row, 0].imshow(x.view(28, 28).numpy(), cmap="gray_r", vmin=0, vmax=1)
-        axes[row, 0].axis("off")
+        _clean(axes[row, 0])
         axes[row, 0].set_ylabel(f"d{c}", fontsize=9, rotation=0, labelpad=14, va="center")
 
         for ci, k in enumerate(RANKS, start=1):
             s = saliency_rank_k(vals, vecs, x, k).view(28, 28).numpy()
             axes[row, ci].imshow(s, cmap="hot", vmin=0, vmax=s.max() + 1e-8)
-            axes[row, ci].axis("off")
+            _clean(axes[row, ci])
 
         s_full = saliency_full(Q, x).view(28, 28).numpy()
         axes[row, -1].imshow(s_full, cmap="hot", vmin=0, vmax=s_full.max() + 1e-8)
-        axes[row, -1].axis("off")
+        _clean(axes[row, -1])
 
     for ci, lbl in enumerate(col_lbls):
         axes[0, ci].set_title(lbl, fontsize=9)

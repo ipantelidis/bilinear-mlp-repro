@@ -80,6 +80,8 @@ def plot(curves: dict) -> None:
                 color=cmap(label), label=f"digit {label}")
 
     ax.axhline(0.90, color="gray", linestyle="--", linewidth=0.8, label="r = 0.90")
+    from matplotlib.ticker import MaxNLocator
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     ax.set_xlabel("Rank k", fontsize=11)
     ax.set_ylabel("Pearson r  (true vs. rank-k approx)", fontsize=11)
     ax.set_title("Exp 02 — Truncation: how many eigenvectors are needed?", fontsize=12)
@@ -105,4 +107,11 @@ if __name__ == "__main__":
     print("Running Exp 02: Truncation...")
     curves = truncation_curves(model, loader)
     plot(curves)
+
+    import json
+    with open("figures/mnist/exp02_results.json", "w") as f:
+        json.dump({"k_max": K_MAX,
+                   "pearson_r_by_rank": {str(c): [float(v) for v in curves[c]]
+                                          for c in sorted(curves)}}, f, indent=2)
+    print("  Saved → figures/mnist/exp02_results.json")
     print("Done.")

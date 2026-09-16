@@ -1,27 +1,32 @@
 """
-Experiment 09 — Fashion-MNIST Extension
-=========================================
-Runs three analyses on the Fashion-MNIST BilinearVAE to show the encoder
-analysis generalises beyond digits:
+Experiment 12 — KMNIST Extension (dataset generality)
+=====================================================
+Runs the established encoder battery on a BilinearVAE trained on KMNIST
+(10 Hiragana classes, much higher intra-class variability than digits):
 
   (a) Latent dictionary        — pixel patterns per latent dimension
-  (b) Maximally activating     — causal test, trained vs. random
-  (c) Cross-class similarity   — does visual taxonomy appear in weights?
+  (b) Maximally activating     — causal test, trained vs. 10-seeded random baseline
+  (c) Cross-class similarity   — |cos| of top eigenvectors of class-mean directions
 
-Direct comparison with Pearce et al. Figure 2B (FMNIST classifier eigenvectors).
+Same protocol as exp05 (MNIST) / exp09 (FMNIST), including the 10-seeded-init
+random baseline convention.
 
-Outputs: figures/fashion_mnist/exp09_latent_dictionary.png
-         figures/fashion_mnist/exp09_max_activating.png
-         figures/fashion_mnist/exp09_cross_class.png
+Outputs: figures/kmnist/exp12_latent_dictionary.png
+         figures/kmnist/exp12_max_activating.png
+         figures/kmnist/exp12_cross_class.png
+         figures/kmnist/exp12_results.json
 """
 
+import json
 import sys
 from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from models    import BilinearVAE
@@ -30,14 +35,20 @@ from analysis  import interaction_matrix, decompose, class_means
 from visualize import plot_heatmap
 
 # ── Constants ────────────────────────────────────────────────────────────────
-CKPT   = Path("checkpoints/fashion_mnist/model.pt")
-OUTDIR = Path("figures/fashion_mnist")
+CKPT   = Path("checkpoints/kmnist/model.pt")
+OUTDIR = Path("figures/kmnist")
 DEVICE = "cpu"
-CLASS_NAMES = {
-    0: "T-shirt", 1: "Trouser", 2: "Pullover", 3: "Dress",  4: "Coat",
-    5: "Sandal",  6: "Shirt",   7: "Sneaker",  8: "Bag",     9: "Boot",
-}
+# KMNIST class index → romanised Hiragana character (torchvision order)
+CLASS_NAMES = {0: "o", 1: "ki", 2: "su", 3: "tsu", 4: "na",
+               5: "ha", 6: "ma", 7: "ya", 8: "re", 9: "wo"}
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+def _clean(ax):
+    """Remove ticks and spines but keep the axis alive so labels render."""
+    ax.set_xticks([]); ax.set_yticks([])
+    for s in ax.spines.values():
+        s.set_visible(False)
 
 
 # ── (a) Latent dictionary ────────────────────────────────────────────────────
@@ -60,14 +71,14 @@ def plot_latent_dictionary(model) -> None:
             vmax = max(abs(img).max(), 1e-8)
             axes[row, k].imshow(img, cmap="RdBu_r", vmin=-vmax, vmax=vmax)
             axes[row, k].set_title(f"z{k}\nλ={lam:.2f}", fontsize=7)
-            axes[row, k].axis("off")
+            _clean(axes[row, k])
 
     axes[0, 0].set_ylabel("Activates z_k", fontsize=8, labelpad=4)
     axes[1, 0].set_ylabel("Suppresses z_k", fontsize=8, labelpad=4)
-    fig.suptitle("Exp 09a — Fashion-MNIST latent dictionary  (μ*=e_k)",
+    fig.suptitle("Exp 12a — KMNIST latent dictionary  (μ*=e_k)",
                  fontsize=11, y=1.01)
     fig.tight_layout()
-    out = OUTDIR / "exp09_latent_dictionary.png"
+    out = OUTDIR / "exp12_latent_dictionary.png"
     out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out, dpi=130, bbox_inches="tight")
     plt.close(fig)
@@ -113,31 +124,33 @@ def plot_max_activating(trained, random, mean_norm) -> None:
             img = (r["eigenvector"] * mean_norm).view(28, 28).numpy()
             vmax = max(abs(img).max(), 1e-8)
             axes[row_img, col].imshow(img, cmap="RdBu_r", vmin=-vmax, vmax=vmax)
-            axes[row_img, col].axis("off")
+            _clean(axes[row_img, col])
             if row_img == 0:
-                axes[row_img, col].set_title(CLASS_NAMES[r["class"]][:6], fontsize=7)
-            tick  = "✓" if r["correct"] else f"→{CLASS_NAMES[r['nearest']][:4]}"
+                axes[row_img, col].set_title(CLASS_NAMES[r["class"]], fontsize=9)
+            tick  = "✓" if r["correct"] else f"→{CLASS_NAMES[r['nearest']]}"
             color = "darkgreen" if r["correct"] else "firebrick"
             axes[row_lbl, col].text(0.5, 0.65, tick, ha="center", va="center",
                 fontsize=11, color=color, transform=axes[row_lbl, col].transAxes)
             axes[row_lbl, col].text(0.5, 0.2, f"cos={r['cos_to_true']:.2f}",
                 ha="center", va="center", fontsize=7,
                 transform=axes[row_lbl, col].transAxes)
-            axes[row_lbl, col].axis("off")
+            _clean(axes[row_lbl, col])
         n_ok = sum(r["correct"] for r in results)
-        axes[row_img, 0].set_ylabel(f"{label}\n({n_ok}/{n})", fontsize=8, labelpad=4)
+        axes[row_img, 0].set_ylabel(f"{label}\neigenvector", fontsize=8, labelpad=4)
+        axes[row_lbl, 0].set_ylabel(f"nearest class\n({n_ok}/{n})", fontsize=8, labelpad=4)
 
     fill(trained, 0, 1, "trained")
-    fill(random,  2, 3, "random")
+    fill(random,  2, 3, "random (seed 0)")
     fig.add_artist(plt.Line2D([0.02, 0.98], [0.505, 0.505],
                                transform=fig.transFigure,
                                color="gray", linestyle="--", linewidth=0.9))
     n_tr = sum(r["correct"] for r in trained)
     n_rn = sum(r["correct"] for r in random)
-    fig.suptitle(f"Exp 09b — Fashion-MNIST maximally activating test\n"
-                 f"Trained: {n_tr}/{n}    Random: {n_rn}/{n}",
+    fig.suptitle(f"Exp 12b — KMNIST maximally activating test\n"
+                 f"Trained: {n_tr}/{n}    Random (seed 0): {n_rn}/{n}",
                  fontsize=11, y=1.01)
-    out = OUTDIR / "exp09_max_activating.png"
+    out = OUTDIR / "exp12_max_activating.png"
+    out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out, dpi=130, bbox_inches="tight")
     plt.close(fig)
     print(f"  Saved → {out}")
@@ -146,7 +159,7 @@ def plot_max_activating(trained, random, mean_norm) -> None:
 # ── (c) Cross-class similarity ───────────────────────────────────────────────
 
 @torch.no_grad()
-def plot_cross_class(model, loader):
+def cross_class(model, loader):
     means  = class_means(model, loader, DEVICE)
     labels = sorted(means.keys())
     top_vecs = {}
@@ -167,24 +180,28 @@ def plot_cross_class(model, loader):
     tick_labels = [CLASS_NAMES[l] for l in labels]
     plot_heatmap(
         matrix=mat, row_labels=tick_labels, col_labels=tick_labels,
-        title="Exp 09c — Fashion-MNIST cross-class similarity  |cos(v1_A, v1_B)|",
-        out_path=OUTDIR / "exp09_cross_class.png",
+        title="Exp 12c — KMNIST cross-class similarity  |cos(v1_A, v1_B)|",
+        out_path=OUTDIR / "exp12_cross_class.png",
     )
-    return labels, mat
 
+    pairs = sorted(([float(mat[i, j]), labels[i], labels[j]]
+                    for i in range(n) for j in range(i + 1, n)), reverse=True)
     print("\n  Top-5 most similar pairs:")
-    pairs = [(mat[i, j], labels[i], labels[j])
-             for i in range(n) for j in range(i + 1, n)]
-    for sim, a, b in sorted(pairs, reverse=True)[:5]:
+    for sim, a, b in pairs[:5]:
         print(f"    ({CLASS_NAMES[a]}, {CLASS_NAMES[b]}): {sim:.3f}")
+    return labels, mat, pairs
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    torch.manual_seed(0)
+    np.random.seed(0)
+
     transform = transforms.Compose([transforms.ToTensor()])
     loader = DataLoader(
-        datasets.FashionMNIST("/home/v25/ippa6201/bilinear-mlp-repro/data", train=False, download=True, transform=transform),
+        datasets.KMNIST("/home/v25/ippa6201/bilinear-mlp-repro/data",
+                        train=False, download=True, transform=transform),
         batch_size=512, shuffle=False)
 
     trained = BilinearVAE()
@@ -193,7 +210,7 @@ if __name__ == "__main__":
     torch.manual_seed(0)
     random_model = BilinearVAE(); random_model.eval()
 
-    print("Running Exp 09: Fashion-MNIST Extension...")
+    print("Running Exp 12: KMNIST Extension...")
 
     print("\n  (a) Latent dictionary...")
     plot_latent_dictionary(trained)
@@ -207,35 +224,46 @@ if __name__ == "__main__":
         rm = BilinearVAE(); rm.eval()
         rs, _ = run_max_activating(rm, loader)
         rn_counts.append(sum(r["correct"] for r in rs))
-    import numpy as _np
     print(f"    Random baseline over 10 inits: "
-          f"{_np.mean(rn_counts):.1f} ± {_np.std(rn_counts):.1f} /10")
+          f"{np.mean(rn_counts):.1f} ± {np.std(rn_counts):.1f} /10")
     n_tr = sum(r["correct"] for r in tr_results)
     n_rn = sum(r["correct"] for r in rn_results)
-    print(f"    Trained {n_tr}/{len(tr_results)} correct  |  Random {n_rn}/{len(rn_results)} correct")
+    print(f"    Trained {n_tr}/{len(tr_results)} correct  |  "
+          f"Random (seed 0) {n_rn}/{len(rn_results)} correct")
     for r in tr_results:
         status = "✓" if r["correct"] else f"→ {CLASS_NAMES[r['nearest']]}"
-        print(f"    {CLASS_NAMES[r['class']]:<12}: {status}")
+        print(f"    {CLASS_NAMES[r['class']]:<4}: {status}  cos={r['cos_to_true']:.3f}")
     plot_max_activating(tr_results, rn_results, mean_norm)
 
     print("\n  (c) Cross-class similarity...")
-    cc_labels, cc_mat = plot_cross_class(trained, loader)
-
-    import json
+    cc_labels, cc_mat, cc_pairs = cross_class(trained, loader)
     off = [float(cc_mat[i, j]) for i in range(len(cc_labels))
            for j in range(len(cc_labels)) if i != j]
+    offdiag_mean = sum(off) / len(off)
+    print(f"    Off-diagonal mean: {offdiag_mean:.3f}")
+
     def _rows(rs):
         return [{"class": int(r["class"]), "correct": bool(r["correct"]),
-                 "nearest": int(r["nearest"])} for r in rs]
-    with open("figures/fashion_mnist/exp09_results.json", "w") as f:
-        json.dump({"trained_correct": int(n_tr),
+                 "nearest": int(r["nearest"]),
+                 "cos_to_true": float(r["cos_to_true"])} for r in rs]
+
+    OUTDIR.mkdir(parents=True, exist_ok=True)
+    with open(OUTDIR / "exp12_results.json", "w") as f:
+        json.dump({"class_names": {int(k): v for k, v in CLASS_NAMES.items()},
+                   "trained_correct": int(n_tr),
                    "random_correct_seed0": int(n_rn),
-                   "random_correct_10init_mean": float(_np.mean(rn_counts)),
-                   "random_correct_10init_std": float(_np.std(rn_counts)),
+                   "random_correct_10init_mean": float(np.mean(rn_counts)),
+                   "random_correct_10init_std": float(np.std(rn_counts)),
                    "random_correct_10init_counts": [int(c) for c in rn_counts],
-                   "trained": _rows(tr_results), "random": _rows(rn_results),
+                   "mean_image_norm": float(mean_norm),
+                   "trained": _rows(tr_results),
+                   "random": _rows(rn_results),
                    "crossclass_matrix": [[float(v) for v in row] for row in cc_mat],
-                   "crossclass_offdiag_mean": sum(off) / len(off)}, f, indent=2)
-    print("  Saved → figures/fashion_mnist/exp09_results.json")
+                   "crossclass_offdiag_mean": float(offdiag_mean),
+                   "crossclass_top5_pairs": [
+                       {"pair": [CLASS_NAMES[a], CLASS_NAMES[b]],
+                        "classes": [int(a), int(b)], "abs_cos": float(sim)}
+                       for sim, a, b in cc_pairs[:5]]}, f, indent=2)
+    print(f"  Saved → {OUTDIR / 'exp12_results.json'}")
 
     print("Done.")

@@ -122,20 +122,48 @@ if __name__ == "__main__":
     trained_model = BilinearVAE()
     load_checkpoint(trained_model, str(CKPT), DEVICE)
 
-    random_model = BilinearVAE()   # untrained control
+    # Untrained control: seed it so the figure is reproducible, and measure
+    # the baseline over 10 seeded inits (a single init is high-variance).
+    torch.manual_seed(0)
+    random_model = BilinearVAE()
     random_model.eval()
 
     print("Running Exp 05: Maximally Activating Input Test...")
     trained_results, mean_norm = run_test(trained_model, loader)
     random_results,  _         = run_test(random_model,  loader)
 
+    rn_counts = []
+    for s in range(10):
+        torch.manual_seed(s)
+        rm = BilinearVAE(); rm.eval()
+        rs, _ = run_test(rm, loader)
+        rn_counts.append(sum(r["correct"] for r in rs))
+
     n_tr = sum(r["correct"] for r in trained_results)
     n_rn = sum(r["correct"] for r in random_results)
+    import numpy as _np
+    print(f"  Random baseline over 10 inits: "
+          f"{_np.mean(rn_counts):.1f} ± {_np.std(rn_counts):.1f} /10")
     print(f"\n  Trained: {n_tr}/{len(trained_results)} correct")
     for r in trained_results:
         status = "✓" if r["correct"] else f"→ {r['nearest']}"
         print(f"    digit {r['class']}: {status}  cos={r['cos_to_true']:.3f}")
     print(f"\n  Random:  {n_rn}/{len(random_results)} correct")
+
+    import json
+    def _rows(rs):
+        return [{"class": int(r["class"]), "correct": bool(r["correct"]),
+                 "nearest": int(r["nearest"]),
+                 "cos_to_true": float(r["cos_to_true"])} for r in rs]
+    with open("figures/mnist/exp05_results.json", "w") as f:
+        json.dump({"trained_correct": int(n_tr),
+                   "random_correct_seed0": int(n_rn),
+                   "random_correct_10init_mean": float(_np.mean(rn_counts)),
+                   "random_correct_10init_std": float(_np.std(rn_counts)),
+                   "random_correct_10init_counts": [int(c) for c in rn_counts],
+                   "trained": _rows(trained_results),
+                   "random": _rows(random_results)}, f, indent=2)
+    print("  Saved → figures/mnist/exp05_results.json")
 
     plot(trained_results, random_results, mean_norm)
     print("Done.")
