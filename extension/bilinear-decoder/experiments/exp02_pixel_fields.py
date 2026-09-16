@@ -9,11 +9,13 @@ Two panels:
   (a) Grid of decoded images — the "generative field" of each output pixel.
   (b) Effective-rank heatmap — how many latent dimensions each pixel mobilises.
 
-Figures saved:
+Outputs:
     figures/mnist/exp02_pixel_fields_grid.png
     figures/mnist/exp02_pixel_fields_rank.png
+    figures/exp02_results.json   (effective-rank map + summary)
 """
 
+import json
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -89,6 +91,17 @@ def main():
     ax2.set_xlabel("Column (sample)", fontsize=9)
     ax2.set_ylabel("Row (sample)",    fontsize=9)
     save_fig(fig2, "figures/mnist/exp02_pixel_fields_rank.png")
+
+    with open("figures/exp02_results.json", "w") as f:
+        json.dump({
+            "pixel_rows": PIXEL_ROWS.tolist(),
+            "pixel_cols": PIXEL_COLS.tolist(),
+            "effective_rank_map": rank_map.tolist(),
+            "effective_rank_mean": float(rank_map.mean()),
+            "effective_rank_min":  float(rank_map.min()),
+            "effective_rank_max":  float(rank_map.max()),
+        }, f, indent=2)
+    print("Saved figures/exp02_results.json")
 
 
 if __name__ == "__main__":

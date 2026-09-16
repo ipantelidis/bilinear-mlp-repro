@@ -8,11 +8,13 @@ response to each class direction is generative vs. suppressive.
 Also computes this for all 784 pixel directions (p* = e_i) and maps the spatial
 distribution of generative fraction across the image.
 
-Figures saved:
+Outputs:
     figures/mnist/exp08_mass_ratio_classes.png
     figures/mnist/exp08_mass_spatial.png
+    figures/exp08_results.json   (per-class mass ratios + spatial map)
 """
 
+import json
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -51,7 +53,7 @@ def main():
     mean_imgs = {c: torch.stack(v).mean(0) for c, v in buckets.items()}
 
     # ── Per-class mass ratios ─────────────────────────────────────────────
-    ratios = {}
+    ratios, counts = {}, {}
     print(f"{'Class':<8} {'mass_ratio':>12}  eigenvalue_counts")
     with torch.no_grad():
         for c in range(10):
@@ -60,6 +62,7 @@ def main():
             r = _mass_ratio(vals)
             ratios[c] = r
             n_pos = int((vals > 0).sum()); n_neg = int((vals < 0).sum())
+            counts[c] = (n_pos, n_neg)
             print(f"  d{c}      {r:>12.4f}  (+{n_pos} / -{n_neg})")
 
     cmap = plt.get_cmap("tab10")
@@ -94,6 +97,19 @@ def main():
     ax2.axis("off")
     fig2.tight_layout()
     save_fig(fig2, "figures/mnist/exp08_mass_spatial.png")
+
+    with open("figures/exp08_results.json", "w") as f:
+        json.dump({
+            "class_mass_ratio": {str(c): ratios[c] for c in range(10)},
+            "class_eig_counts": {str(c): {"n_pos": counts[c][0],
+                                          "n_neg": counts[c][1]}
+                                 for c in range(10)},
+            "spatial_mass_ratio_784": spatial_ratio.tolist(),
+            "spatial_mean": float(spatial_ratio.mean()),
+            "spatial_min":  float(spatial_ratio.min()),
+            "spatial_max":  float(spatial_ratio.max()),
+        }, f, indent=2)
+    print("Saved figures/exp08_results.json")
 
 
 if __name__ == "__main__":

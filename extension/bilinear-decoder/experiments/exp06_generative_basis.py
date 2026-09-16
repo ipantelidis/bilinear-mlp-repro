@@ -5,10 +5,12 @@ For each digit class, Q_dec has exactly 2-3 positive eigenvectors.
 Decode ALL positive eigenvectors — this is the complete weight-based generative
 vocabulary of the decoder for each class direction.
 
-Figure saved:
+Outputs:
     figures/mnist/exp06_generative_basis.png
+    figures/exp06_results.json   (n positive eigvecs + eigenvalues per class)
 """
 
+import json
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -47,6 +49,7 @@ def main():
     fig, axes = plt.subplots(10, n_cols, figsize=(n_cols * 1.8, 10 * 1.8),
                               gridspec_kw={"hspace": 0.05, "wspace": 0.04})
 
+    basis_stats = {}
     print(f"{'Class':<8} {'n_pos':>6}  eigenvalues")
     with torch.no_grad():
         for c in range(10):
@@ -54,6 +57,8 @@ def main():
             vals, vecs = decompose(Q)
             pos_idx = (vals > 0).nonzero(as_tuple=True)[0]
             n_pos   = len(pos_idx)
+            basis_stats[str(c)] = {"n_pos": n_pos,
+                                   "pos_eigenvalues": [float(vals[i]) for i in pos_idx]}
             print(f"  d{c}      {n_pos:>6}  {[round(float(vals[i]),2) for i in pos_idx]}")
 
             # Col 0: mean image
@@ -79,6 +84,10 @@ def main():
     fig.suptitle("Exp 06 — Complete generative basis (all positive eigvecs decoded)",
                  fontsize=11, y=1.005)
     save_fig(fig, "figures/mnist/exp06_generative_basis.png")
+
+    with open("figures/exp06_results.json", "w") as f:
+        json.dump(basis_stats, f, indent=2)
+    print("Saved figures/exp06_results.json")
 
 
 if __name__ == "__main__":

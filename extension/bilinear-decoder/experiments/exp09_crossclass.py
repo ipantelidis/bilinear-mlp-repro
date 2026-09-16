@@ -1,23 +1,32 @@
 """
 Exp 09 — Encoder vs Decoder Cross-Class Similarity
 
-Side-by-side comparison of:
-  (a) Encoder pixel-space cross-class cosine similarity (from BilinearVAE encoder)
-  (b) Decoder latent-space cross-class cosine similarity (from DecBilinearVAE)
+Three-way comparison of top-eigenvector cross-class |cos| similarity:
+  (a) Decoder, raw class-mean targets p* = mean_c        (DecBilinearVAE)
+  (b) Decoder, centered targets p* = mean_c − global mean (exp13 protocol)
+  (c) Encoder, class-mean latent encodings μ* = mean_c(μ) (BilinearVAE)
 
-Key finding: decoder top eigenvectors are much more similar across classes
-(mean ≈ 0.842) than encoder top eigenvectors (mean ≈ 0.350), revealing a
-near-universal generative direction in the decoder.
+Key numbers (MNIST): decoder raw 0.842 ≫ decoder centered 0.429 ≳ encoder
+0.350. The decoder's "near-universal generative direction" is mostly an
+artefact of raw-target overlap (see exp13/exp14); with centered targets the
+decoder is nearly as class-discriminative as the encoder.
+
+Note: earlier versions of this experiment computed the encoder side with
+latent BASIS directions μ* = e_k (mean 0.232) but labeled them d0..d9 as if
+they were digit classes. The encoder side now uses class-mean latent
+encodings, which is the like-for-like comparison.
 
 Also included: interpolation of the synthesised image as p* morphs from
 class A to class B, confirming the decoder transition is smooth.
 
-Figures saved:
+Outputs:
     figures/mnist/exp09_crossclass_comparison.png
     figures/mnist/exp09_interpolation.png
+    figures/exp09_results.json
 """
 
 import os
+import json
 import importlib.util
 import torch
 import numpy as np
@@ -74,9 +83,9 @@ def _decoder_crossclass(model, mean_imgs):
     return mat, top_vecs
 
 
-def _encoder_crossclass(enc_model, enc_analysis, mean_imgs):
-    """Encoder cross-class: top +eigvec of Q_in for each unit latent direction e_k."""
-    classes  = sorted(mean_imgs.keys())
+def _encoder_crossclass(enc_model, enc_analysis, class_mu):
+    """Encoder cross-class: top +eigvec of Q for each class-mean latent μ_c."""
+    classes  = sorted(class_mu.keys())
     # support both naming conventions across encoder analysis versions
     _get_Q   = getattr(enc_analysis, "interaction_matrix",
                 getattr(enc_analysis, "get_interaction_matrix", None))
@@ -84,8 +93,7 @@ def _encoder_crossclass(enc_model, enc_analysis, mean_imgs):
     top_vecs = {}
     with torch.no_grad():
         for c in classes:
-            d = torch.zeros(enc_model.d_latent); d[c] = 1.0
-            Q = _get_Q(enc_model, d)
+            Q = _get_Q(enc_model, class_mu[c])
             vals, vecs = _decomp(Q)
             pos_idx = (vals > 0).nonzero(as_tuple=True)[0]
             top_vecs[c] = vecs[pos_idx[0]] if len(pos_idx) else torch.zeros(Q.shape[0])
@@ -109,10 +117,19 @@ def main():
     mean_imgs = {c: torch.stack(v).mean(0) for c, v in buckets.items()}
     classes   = sorted(mean_imgs.keys())
 
+    def _offdiag(mat):
+        off = mat[~np.eye(mat.shape[0], dtype=bool)]
+        return float(off.mean()), float(off.min()), float(off.max())
+
     dec_mat, top_vecs = _decoder_crossclass(dec_model, mean_imgs)
-    off_diag  = dec_mat[dec_mat < 1.0]
-    dec_mean  = off_diag.mean()
-    print(f"Decoder cross-class: mean={dec_mean:.3f}  min={off_diag.min():.3f}  max={off_diag.max():.3f}")
+    dec_mean, dec_min, dec_max = _offdiag(dec_mat)
+    print(f"Decoder raw targets:      mean={dec_mean:.3f}  min={dec_min:.3f}  max={dec_max:.3f}")
+
+    global_mean  = torch.stack([mean_imgs[c] for c in classes]).mean(0)
+    centered     = {c: mean_imgs[c] - global_mean for c in classes}
+    cen_mat, _   = _decoder_crossclass(dec_model, centered)
+    cen_mean, cen_min, cen_max = _offdiag(cen_mat)
+    print(f"Decoder centered targets: mean={cen_mean:.3f}  min={cen_min:.3f}  max={cen_max:.3f}")
 
     # Load encoder via explicit file path (avoids local models.py shadowing BilinearVAE)
     enc_mat  = None
@@ -126,31 +143,38 @@ def main():
         enc_train.load_checkpoint(enc_model, CKPT_ENC)
         enc_model.eval()
 
-        enc_mat  = _encoder_crossclass(enc_model, enc_analysis, mean_imgs)
-        enc_off  = enc_mat[enc_mat < 1.0]
-        enc_mean = enc_off.mean()
-        print(f"Encoder cross-class: mean={enc_mean:.3f}  min={enc_off.min():.3f}  max={enc_off.max():.3f}")
+        class_mu = enc_analysis.class_means(enc_model, loader)
+        enc_mat  = _encoder_crossclass(enc_model, enc_analysis, class_mu)
+        enc_mean, enc_min, enc_max = _offdiag(enc_mat)
+        print(f"Encoder class-mean μ:     mean={enc_mean:.3f}  min={enc_min:.3f}  max={enc_max:.3f}")
     except Exception as e:
         print(f"  Could not load encoder: {e}")
 
-    # ── Figure 1: side-by-side heatmaps ──────────────────────────────────
-    n_panels = 2 if enc_mat is not None else 1
-    fig, axes = plt.subplots(1, n_panels, figsize=(7 * n_panels, 6))
-    if n_panels == 1:
+    results = {"decoder_raw":      {"mean": dec_mean, "min": dec_min, "max": dec_max},
+               "decoder_centered": {"mean": cen_mean, "min": cen_min, "max": cen_max}}
+    if enc_mat is not None:
+        results["encoder_class_mean_mu"] = {"mean": enc_mean, "min": enc_min, "max": enc_max}
+    with open("figures/exp09_results.json", "w") as f:
+        json.dump(results, f, indent=2)
+    print("Saved figures/exp09_results.json")
+
+    # ── Figure 1: three-way heatmaps ─────────────────────────────────────
+    panels = [(dec_mat, f"Decoder, raw targets p*=mean_c\nmean |cos| = {dec_mean:.3f}"),
+              (cen_mat, f"Decoder, centered targets (exp13)\nmean |cos| = {cen_mean:.3f}")]
+    if enc_mat is not None:
+        panels.append((enc_mat, f"Encoder, class-mean μ targets\nmean |cos| = {enc_mean:.3f}"))
+    fig, axes = plt.subplots(1, len(panels), figsize=(6.2 * len(panels), 6))
+    if len(panels) == 1:
         axes = [axes]
 
     lbls = [f"d{c}" for c in classes]
-    im1 = similarity_heatmap(axes[0], dec_mat, lbls,
-                              title=f"Decoder (bilinear)\nmean cos = {dec_mean:.3f}")
-    plt.colorbar(im1, ax=axes[0], fraction=0.046, pad=0.04)
-
-    if enc_mat is not None:
-        im2 = similarity_heatmap(axes[1], enc_mat, lbls,
-                                  title=f"Encoder (bilinear)\nmean cos = {enc_mean:.3f}")
-        plt.colorbar(im2, ax=axes[1], fraction=0.046, pad=0.04)
+    for ax, (mat, title) in zip(axes, panels):
+        im = similarity_heatmap(ax, mat, lbls, title=title)
+        plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
 
     fig.suptitle("Exp 09 — Top eigenvector cross-class similarity:\n"
-                 "Decoder is far less class-discriminative than encoder",
+                 "the raw-target decoder overlap is mostly a target artefact — "
+                 "centered decoder is near encoder level",
                  fontsize=11, y=1.03)
     fig.tight_layout()
     save_fig(fig, "figures/mnist/exp09_crossclass_comparison.png")

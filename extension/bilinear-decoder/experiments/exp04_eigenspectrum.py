@@ -7,11 +7,13 @@ of Q_dec (10 values).  Also overlays all 10 spectra in a single panel.
 Key finding: Q_dec consistently has only 2-3 positive eigenvalues (rank-2
 generative subspace) and a dominant negative eigenvalue.
 
-Figures saved:
+Outputs:
     figures/mnist/exp04_eigenspectra.png
     figures/mnist/exp04_spectra_overlay.png
+    figures/exp04_results.json   (per-class spectra + summaries)
 """
 
+import json
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -52,6 +54,16 @@ def main():
             all_vals[c] = vals
             n_pos = int((vals > 0).sum())
             print(f"  d{c}      {n_pos:>6}  {vals.max():>10.3f}  {vals.min():>10.3f}")
+
+    with open("figures/exp04_results.json", "w") as f:
+        json.dump({str(c): {
+            "eigenvalues": [float(v) for v in all_vals[c]],
+            "n_pos":  int((all_vals[c] > 0).sum()),
+            "n_neg":  int((all_vals[c] < 0).sum()),
+            "lam_max": float(all_vals[c].max()),
+            "lam_min": float(all_vals[c].min()),
+        } for c in range(10)}, f, indent=2)
+    print("Saved figures/exp04_results.json")
 
     # Figure 1: individual bar charts
     fig1, axes = plt.subplots(2, 5, figsize=(14, 5.5),

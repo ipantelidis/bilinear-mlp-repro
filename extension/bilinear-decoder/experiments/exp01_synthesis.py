@@ -45,8 +45,15 @@ def main():
 
     scale = mean_lat_norm(model, loader)
 
-    fig, axes = plt.subplots(3, 10, figsize=(18, 5.5),
-                             gridspec_kw={"hspace": 0.05, "wspace": 0.04})
+    def clean(ax):
+        """Hide ticks and frame but keep axis labels visible
+        (ax.axis('off') would erase the row/eigenvalue labels too)."""
+        ax.set_xticks([]); ax.set_yticks([])
+        for s in ax.spines.values():
+            s.set_visible(False)
+
+    fig, axes = plt.subplots(3, 10, figsize=(18, 6.2),
+                             gridspec_kw={"hspace": 0.35, "wspace": 0.04})
     with torch.no_grad():
         for c in range(10):
             Q = get_decoder_interaction_matrix(model, mean_imgs[c])
@@ -62,19 +69,19 @@ def main():
 
             axes[0, c].imshow(mean_imgs[c].view(28, 28).numpy(), cmap="gray_r", vmin=0, vmax=1)
             axes[0, c].set_title(f"d{c}", fontsize=9)
-            axes[0, c].axis("off")
+            clean(axes[0, c])
 
             axes[1, c].imshow(img_pos.view(28, 28).numpy(), cmap="gray_r", vmin=0, vmax=1)
             axes[1, c].set_xlabel(f"λ={vals[pos_idx[0]]:.1f}" if len(pos_idx) else "none", fontsize=7)
-            axes[1, c].axis("off")
+            clean(axes[1, c])
 
             axes[2, c].imshow(img_neg.view(28, 28).numpy(), cmap="gray_r", vmin=0, vmax=1)
             axes[2, c].set_xlabel(f"λ={vals[neg_idx[0]]:.1f}" if len(neg_idx) else "none", fontsize=7)
-            axes[2, c].axis("off")
+            clean(axes[2, c])
 
-    axes[0, 0].set_ylabel("Mean image",   fontsize=8, labelpad=4)
-    axes[1, 0].set_ylabel("Decoded +eig", fontsize=8, labelpad=4)
-    axes[2, 0].set_ylabel("Decoded −eig", fontsize=8, labelpad=4)
+    axes[0, 0].set_ylabel("Mean image",   fontsize=9, labelpad=6)
+    axes[1, 0].set_ylabel("Decoded +eig", fontsize=9, labelpad=6)
+    axes[2, 0].set_ylabel("Decoded −eig", fontsize=9, labelpad=6)
     fig.suptitle("Exp 01 — Analytical image synthesis  (p* = class mean, decode top eigvec)",
                  fontsize=11, y=1.01)
     save_fig(fig, OUT)

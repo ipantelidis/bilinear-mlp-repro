@@ -8,13 +8,21 @@ Two analyses:
 
   (b) Scatter plot: positive eigenvalue mass ratio vs. per-class reconstruction
       MSE.  Tests whether classes with more generative eigenvalue mass are
-      also easier to reconstruct (r ≈ −0.686, p ≈ 0.029).
+      also easier to reconstruct.
 
-Figures saved:
+Robustness of (b): the Pearson correlation (r ≈ −0.70, p ≈ 0.025) visually
+hinges on outlier class d1, so we also report the Spearman rank correlation
+and a leave-one-out Pearson sweep (drop each class in turn). If the
+correlation collapses without d1, the association is fragile — reported
+honestly in the JSON and on the figure.
+
+Outputs:
     figures/mnist/exp10_synthesis_quality.png
     figures/mnist/exp10_mass_mse_scatter.png
+    figures/exp10_results.json
 """
 
+import json
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -115,7 +123,36 @@ def main():
 
     # Figure 2: mass ratio vs reconstruction MSE scatter
     r_stat, p_val = stats.pearsonr(mass_ratios, recon_mses)
-    print(f"\nMass ratio vs recon MSE: r={r_stat:.3f}  p={p_val:.3f}")
+    rho, rho_p    = stats.spearmanr(mass_ratios, recon_mses)
+    print(f"\nMass ratio vs recon MSE: Pearson r={r_stat:.3f}  p={p_val:.3f}")
+    print(f"                         Spearman ρ={rho:.3f}  p={rho_p:.3f}")
+
+    # Leave-one-out Pearson: drop each class in turn
+    loo = {}
+    for drop in range(10):
+        mr = [mass_ratios[c] for c in range(10) if c != drop]
+        rm = [recon_mses[c]  for c in range(10) if c != drop]
+        r_i, p_i = stats.pearsonr(mr, rm)
+        loo[drop] = {"r": float(r_i), "p": float(p_i)}
+        print(f"  drop d{drop}: r={r_i:.3f}  p={p_i:.3f}")
+    loo_rs   = [loo[c]["r"] for c in range(10)]
+    loo_span = (min(loo_rs), max(loo_rs))
+    print(f"  leave-one-out r range: [{loo_span[0]:.3f}, {loo_span[1]:.3f}]  "
+          f"(without d1: r={loo[1]['r']:.3f}, p={loo[1]['p']:.3f})")
+
+    with open("figures/exp10_results.json", "w") as f:
+        json.dump({
+            "synth_mse_per_class":  synth_mses,
+            "recon_mse_per_class":  recon_mses,
+            "quality_ratio_per_class": ratios,
+            "quality_ratio_mean":   float(np.mean(ratios)),
+            "mass_ratio_per_class": mass_ratios,
+            "pearson":  {"r": float(r_stat), "p": float(p_val)},
+            "spearman": {"rho": float(rho), "p": float(rho_p)},
+            "leave_one_out_pearson": loo,
+            "leave_one_out_r_range": list(loo_span),
+        }, f, indent=2)
+    print("Saved figures/exp10_results.json")
 
     fig2, ax2 = plt.subplots(figsize=(6, 5))
     for c in range(10):
@@ -127,8 +164,16 @@ def main():
     ax2.plot(xs, m * xs + b, "k--", linewidth=1.2, alpha=0.6)
     ax2.set_xlabel("Positive eigenvalue mass ratio", fontsize=11)
     ax2.set_ylabel("Reconstruction MSE",             fontsize=11)
-    ax2.set_title(f"Exp 10 — Mass ratio vs reconstruction MSE\nr={r_stat:.3f}, p={p_val:.3f}",
+    ax2.set_title(f"Exp 10 — Mass ratio vs reconstruction MSE\n"
+                  f"Pearson r={r_stat:.3f} (p={p_val:.3f}), "
+                  f"Spearman ρ={rho:.3f} (p={rho_p:.3f})",
                   fontsize=11)
+    ax2.text(0.02, 0.02,
+             f"leave-one-out Pearson r ∈ [{loo_span[0]:.2f}, {loo_span[1]:.2f}]\n"
+             f"without d1: r={loo[1]['r']:.2f} (p={loo[1]['p']:.2f})",
+             transform=ax2.transAxes, fontsize=8, va="bottom",
+             bbox=dict(boxstyle="round", facecolor="white", alpha=0.8,
+                       edgecolor="gray"))
     ax2.grid(True, alpha=0.3)
     fig2.tight_layout()
     save_fig(fig2, "figures/mnist/exp10_mass_mse_scatter.png")

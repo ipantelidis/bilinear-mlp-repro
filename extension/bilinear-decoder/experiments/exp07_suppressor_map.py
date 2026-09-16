@@ -8,11 +8,13 @@ the "anti-pattern" — what the decoder produces when steered suppressively.
 Also builds a cross-suppression matrix: does the suppressor of class c look
 like the generator of class d?  Compared in pixel space via cosine similarity.
 
-Figures saved:
+Outputs:
     figures/mnist/exp07_suppressor_images.png
     figures/mnist/exp07_cross_suppression.png
+    figures/exp07_results.json   (cross-suppression matrix + summary)
 """
 
+import json
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -92,6 +94,17 @@ def main():
     plt.colorbar(im, ax=ax2, fraction=0.046, pad=0.04)
     fig2.tight_layout()
     save_fig(fig2, "figures/mnist/exp07_cross_suppression.png")
+
+    off = mat[~np.eye(n, dtype=bool)]
+    with open("figures/exp07_results.json", "w") as f:
+        json.dump({
+            "cross_suppression_matrix": mat.tolist(),
+            "diag_mean":    float(np.diag(mat).mean()),
+            "offdiag_mean": float(off.mean()),
+            "offdiag_min":  float(off.min()),
+            "offdiag_max":  float(off.max()),
+        }, f, indent=2)
+    print("Saved figures/exp07_results.json")
 
 
 if __name__ == "__main__":

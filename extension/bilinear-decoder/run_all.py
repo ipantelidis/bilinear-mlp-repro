@@ -1,5 +1,5 @@
 """
-run_all.py — Run all 11 decoder analysis experiments in sequence.
+run_all.py — Run all 14 decoder analysis experiments in sequence.
 
 Usage (from the bilinear-decoder/ directory):
     python run_all.py            # run all experiments
@@ -27,6 +27,12 @@ EXPERIMENTS = {
     10: "experiments.exp10_synthesis_quality",
     11: "experiments.exp11_fmnist",
     12: "experiments.exp12_decoder_control",
+    13: "experiments.exp13_contrastive_targets",
+    15: "experiments.exp15_ganspace_control",
+    16: "experiments.exp16_latent_dim_sweep",
+    17: "experiments.exp17_jacobian_baseline",
+    18: "experiments.exp18_kmnist",
+    14: "experiments.exp14_beyond_centering",
 }
 
 DESCRIPTIONS = {
@@ -42,6 +48,12 @@ DESCRIPTIONS = {
     10: "Synthesis quality           (weight-based vs VAE reconstruction)",
     11: "Fashion-MNIST extension     (synthesis + causal + cross-class)",
     12: "Decoder control             (trained vs random vs VanillaVAE)",
+    13: "Contrastive targets         (centered p* rescue synthesis + causal generation)",
+    15: "GANSpace control            (PCA does not recover weight-based directions)",
+    16: "Latent-dim sweep            (rank-1 + centering survive at d=20, 32)",
+    17: "Jacobian baseline           (gradient ascent / J^T p* on a vanilla VAE vs weight-based)",
+    18: "KMNIST extension            (raw vs centered targets, dataset generality)",
+    14: "Beyond centering            (pairwise / deflation / generalized vs centering)",
 }
 
 
