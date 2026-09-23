@@ -6,8 +6,6 @@ original/toy/__pycache__
 data/*
 .vscode/*
 
-extension_full
-
 # Reproduction: large regenerable caches, run logs, training checkpoints
 reproduction/language/fig_09/cache_*.safetensors
 reproduction/language/fig_09/scatter_*.pt
@@ -20,17 +18,6 @@ reproduction/**/replot.log
 reproduction/**/full_run.log
 reproduction/**/smoke.log
 __pycache__/
-# Extension: regenerable per-epoch checkpoints (train_epochs.py) and stale
-# partial-migration leftovers
+# Extension: regenerable per-epoch checkpoints (train_epochs.py)
 extension/bilinear-full/checkpoints/mnist/epochs/
-extension/checkpoints/
-extension/figures/
-extension/**/*_README_snippet.md
 extension/**/*.log
-# Manuscript: LaTeX build artifacts
-manuscript/main.aux
-manuscript/main.bbl
-manuscript/main.blg
-manuscript/main.log
-manuscript/main.out
-manuscript/main.pdf
