@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from models import FullBilinearVAE
 
 import os; os.environ.setdefault("CUDA_VISIBLE_DEVICES", "0")
-DATA    = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA    = str(Path(__file__).resolve().parents[2] / "data")
 DEVICE  = "cuda:0" if torch.cuda.is_available() else "cpu"
 EPOCHS  = 30
 LR      = 1e-3

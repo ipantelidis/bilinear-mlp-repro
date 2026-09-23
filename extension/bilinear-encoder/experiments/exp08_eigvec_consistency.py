@@ -29,6 +29,7 @@ from analysis import interaction_matrix, decompose, class_means
 
 # ── Constants ────────────────────────────────────────────────────────────────
 SEEDS_DIR = Path("checkpoints/mnist/seeds")
+DATA   = str(Path(__file__).resolve().parents[3] / "data")
 OUT       = Path("figures/mnist/exp08_consistency_curve.png")
 DEVICE    = "cpu"
 N_SEEDS   = 5
@@ -62,7 +63,7 @@ def abs_cos(v_a: torch.Tensor, v_b: torch.Tensor) -> float:
 if __name__ == "__main__":
     transform = transforms.Compose([transforms.ToTensor()])
     loader = DataLoader(
-        datasets.MNIST("/home/v25/ippa6201/bilinear-mlp-repro/data", train=False, download=False, transform=transform),
+        datasets.MNIST(DATA, train=False, download=False, transform=transform),
         batch_size=512, shuffle=False)
 
     print(f"Loading {N_SEEDS} seed models...")

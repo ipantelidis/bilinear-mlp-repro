@@ -24,6 +24,7 @@ Figures saved:
     figures/mnist/exp03_alignment_scores.png
 """
 
+import os
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -37,7 +38,7 @@ from analysis import (get_encoder_interaction_matrix, get_decoder_interaction_ma
 from visualize import save_fig
 
 CKPT = "checkpoints/mnist/model.pt"
-DATA = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
 
 
 def _cos(a, b):

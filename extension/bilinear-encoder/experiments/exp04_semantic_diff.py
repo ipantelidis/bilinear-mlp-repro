@@ -23,6 +23,7 @@ from analysis import interaction_matrix, decompose, class_means
 
 # ── Constants ────────────────────────────────────────────────────────────────
 CKPT   = Path("checkpoints/mnist/model.pt")
+DATA   = str(Path(__file__).resolve().parents[3] / "data")
 OUT    = Path("figures/mnist/exp04_semantic_diff.png")
 DEVICE = "cpu"
 PAIRS  = [(4, 9), (1, 7), (0, 6), (3, 5)]   # (A, B) — mean_A − mean_B
@@ -89,7 +90,7 @@ def run(model, means: dict) -> None:
 if __name__ == "__main__":
     transform = transforms.Compose([transforms.ToTensor()])
     loader = DataLoader(
-        datasets.MNIST("/home/v25/ippa6201/bilinear-mlp-repro/data", train=False, download=False, transform=transform),
+        datasets.MNIST(DATA, train=False, download=False, transform=transform),
         batch_size=512, shuffle=False)
 
     model = BilinearVAE()

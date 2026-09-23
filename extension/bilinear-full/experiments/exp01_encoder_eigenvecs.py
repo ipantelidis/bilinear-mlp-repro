@@ -19,6 +19,7 @@ Figures saved:
     figures/mnist/exp01_encoder_eigenvecs.png
 """
 
+import os
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -31,7 +32,7 @@ from analysis import get_encoder_interaction_matrix, decompose
 from visualize import similarity_heatmap, save_fig
 
 CKPT = "checkpoints/mnist/model.pt"
-DATA = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
 
 
 def main():

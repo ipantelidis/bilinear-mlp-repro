@@ -20,6 +20,7 @@ synthesis MSE 0.040). Pairwise contrast is the runner-up (7/10, cross-class
 and the generalized eigenproblem fail (≤ 4/10). The explanation is exact:
 Q_dec is LINEAR in p*, so Q(p_c − g) = Q_c − Q̄ — centering already performs
 full-matrix deflation of the shared component (verified to ~1e-4). Q̄ is far
+import os
 from rank-1 (top-|λ| eigenvalue share 0.39), so projecting out one or a few
 of its eigenvectors removes only a fraction of the shared structure while
 distorting the eigenspace. Note also that the one-vs-rest contrast
@@ -47,7 +48,7 @@ from analysis  import (get_decoder_interaction_matrix, decompose,
                        compute_class_means, mean_lat_norm)
 from visualize import save_fig
 
-DATA    = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA    = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
 CKPT    = "checkpoints/mnist/model.pt"
 RESULTS = "figures/exp14_results.json"
 EXP13   = "figures/exp13_results.json"   # random-model reference, if present

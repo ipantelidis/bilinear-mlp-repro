@@ -18,6 +18,7 @@ Figure saved:
     figures/mnist/exp15_significance.png
 """
 
+import os
 import json
 import torch
 import numpy as np
@@ -33,7 +34,7 @@ from analysis import (get_decoder_interaction_matrix, get_encoder_interaction_ma
 from visualize import save_fig
 
 SEEDS = [0, 1, 2, 3, 4]
-DATA  = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
 N_BOOTSTRAP = 2000
 
 

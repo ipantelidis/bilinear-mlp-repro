@@ -30,7 +30,7 @@ from analysis import (get_decoder_interaction_matrix, get_encoder_interaction_ma
 from visualize import save_fig
 
 EPOCH_DIR = "checkpoints/mnist/epochs"
-DATA      = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA      = str(Path(__file__).resolve().parents[3] / "data")
 
 
 def _cos(a, b):

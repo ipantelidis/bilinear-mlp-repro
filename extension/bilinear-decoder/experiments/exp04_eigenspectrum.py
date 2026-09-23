@@ -13,6 +13,7 @@ Outputs:
     figures/exp04_results.json   (per-class spectra + summaries)
 """
 
+import os
 import json
 import torch
 import numpy as np
@@ -26,7 +27,7 @@ from analysis import get_decoder_interaction_matrix, decompose
 from visualize import save_fig
 
 CKPT = "checkpoints/mnist/model.pt"
-DATA = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
 
 
 def main():

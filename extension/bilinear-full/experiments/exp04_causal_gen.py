@@ -2,6 +2,7 @@
 Exp 04 — Causal Generation Test
 
 Same protocol as bilinear-decoder exp03: synthesise one image per class
+import os
 from decoder weights, encode back, check nearest class mean.
 
 Key question: does having a bilinear encoder improve causal accuracy
@@ -27,7 +28,7 @@ from analysis import (get_decoder_interaction_matrix, decompose,
 from visualize import save_fig
 
 CKPT = "checkpoints/mnist/model.pt"
-DATA = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
 
 
 def _run_causal(model, loader):

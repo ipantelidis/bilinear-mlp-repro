@@ -27,6 +27,7 @@ from analysis import interaction_matrix, decompose, class_means
 
 # ── Constants ────────────────────────────────────────────────────────────────
 CKPT       = Path("checkpoints/mnist/model.pt")
+DATA   = str(Path(__file__).resolve().parents[3] / "data")
 OUT_GRID   = Path("figures/mnist/exp07_saliency_grid.png")
 OUT_RANK   = Path("figures/mnist/exp07_saliency_rank.png")
 DEVICE     = "cpu"
@@ -165,7 +166,7 @@ def plot_rank_progression(model, means, examples) -> None:
 if __name__ == "__main__":
     transform = transforms.Compose([transforms.ToTensor()])
     loader = DataLoader(
-        datasets.MNIST("/home/v25/ippa6201/bilinear-mlp-repro/data", train=False, download=False, transform=transform),
+        datasets.MNIST(DATA, train=False, download=False, transform=transform),
         batch_size=512, shuffle=False)
 
     model = BilinearVAE()

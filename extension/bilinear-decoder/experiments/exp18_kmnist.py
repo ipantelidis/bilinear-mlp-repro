@@ -20,6 +20,7 @@ Outputs:
     figures/exp18_results.json
 """
 
+import os
 import json
 
 import torch
@@ -34,7 +35,7 @@ from analysis  import (get_decoder_interaction_matrix, decompose,
                        compute_class_means, mean_lat_norm)
 from visualize import save_fig
 
-DATA    = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA    = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
 CKPT    = "checkpoints/kmnist/model.pt"
 RESULTS = "figures/exp18_results.json"
 # KMNIST class index → romanised Hiragana character (torchvision order)

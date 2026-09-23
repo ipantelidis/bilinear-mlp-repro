@@ -19,7 +19,7 @@ from torchvision import datasets, transforms
 sys.path.insert(0, str(Path(__file__).parent))
 from models import FullBilinearVAE
 
-DATA   = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA   = str(Path(__file__).resolve().parents[2] / "data")
 import os; os.environ.setdefault("CUDA_VISIBLE_DEVICES", "0")
 DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 EPOCHS = 20

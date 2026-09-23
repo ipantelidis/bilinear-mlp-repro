@@ -25,6 +25,7 @@ from analysis import interaction_matrix, decompose, class_means
 
 # ── Constants ────────────────────────────────────────────────────────────────
 CKPT   = Path("checkpoints/mnist/model.pt")
+DATA   = str(Path(__file__).resolve().parents[3] / "data")
 OUT    = Path("figures/mnist/exp05_max_activating.png")
 DEVICE = "cpu"
 # ─────────────────────────────────────────────────────────────────────────────
@@ -126,7 +127,7 @@ def plot(trained: list, random: list, mean_norm: float) -> None:
 if __name__ == "__main__":
     transform = transforms.Compose([transforms.ToTensor()])
     loader = DataLoader(
-        datasets.MNIST("/home/v25/ippa6201/bilinear-mlp-repro/data", train=False, download=False, transform=transform),
+        datasets.MNIST(DATA, train=False, download=False, transform=transform),
         batch_size=512, shuffle=False)
 
     trained_model = BilinearVAE()

@@ -10,6 +10,7 @@ Outputs:
     figures/exp06_results.json   (n positive eigvecs + eigenvalues per class)
 """
 
+import os
 import json
 import torch
 import numpy as np
@@ -23,7 +24,7 @@ from analysis import get_decoder_interaction_matrix, decompose, mean_lat_norm
 from visualize import save_fig
 
 CKPT = "checkpoints/mnist/model.pt"
-DATA = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
 MAX_POS = 4   # columns: up to 4 positive eigvecs per class
 
 

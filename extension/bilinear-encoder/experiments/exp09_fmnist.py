@@ -31,6 +31,7 @@ from visualize import plot_heatmap
 
 # ── Constants ────────────────────────────────────────────────────────────────
 CKPT   = Path("checkpoints/fashion_mnist/model.pt")
+DATA   = str(Path(__file__).resolve().parents[3] / "data")
 OUTDIR = Path("figures/fashion_mnist")
 DEVICE = "cpu"
 CLASS_NAMES = {
@@ -184,7 +185,7 @@ def plot_cross_class(model, loader):
 if __name__ == "__main__":
     transform = transforms.Compose([transforms.ToTensor()])
     loader = DataLoader(
-        datasets.FashionMNIST("/home/v25/ippa6201/bilinear-mlp-repro/data", train=False, download=True, transform=transform),
+        datasets.FashionMNIST(DATA, train=False, download=True, transform=transform),
         batch_size=512, shuffle=False)
 
     trained = BilinearVAE()

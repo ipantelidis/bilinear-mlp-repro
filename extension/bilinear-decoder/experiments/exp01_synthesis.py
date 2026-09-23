@@ -10,6 +10,7 @@ Figures saved:
     figures/mnist/exp01_synthesis.png
 """
 
+import os
 import torch
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
@@ -22,7 +23,7 @@ from visualize import save_fig
 
 CKPT = "checkpoints/mnist/model.pt"
 OUT  = "figures/mnist/exp01_synthesis.png"
-DATA = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
 
 
 def main():

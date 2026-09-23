@@ -43,7 +43,7 @@ from visualize import save_fig
 
 CKPT  = "checkpoints/fashion_mnist/model.pt"
 SEEDS = [0, 1, 2, 3, 4]
-DATA  = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA  = str(Path(__file__).resolve().parents[3] / "data")
 
 CLASS_NAMES = ["T-shirt", "Trouser", "Pullover", "Dress", "Coat",
                "Sandal", "Shirt", "Sneaker", "Bag", "Boot"]

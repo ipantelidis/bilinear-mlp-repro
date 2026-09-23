@@ -36,6 +36,7 @@ from visualize import plot_heatmap
 
 # ── Constants ────────────────────────────────────────────────────────────────
 CKPT   = Path("checkpoints/kmnist/model.pt")
+DATA   = str(Path(__file__).resolve().parents[3] / "data")
 OUTDIR = Path("figures/kmnist")
 DEVICE = "cpu"
 # KMNIST class index → romanised Hiragana character (torchvision order)
@@ -200,7 +201,7 @@ if __name__ == "__main__":
 
     transform = transforms.Compose([transforms.ToTensor()])
     loader = DataLoader(
-        datasets.KMNIST("/home/v25/ippa6201/bilinear-mlp-repro/data",
+        datasets.KMNIST(DATA,
                         train=False, download=True, transform=transform),
         batch_size=512, shuffle=False)
 

@@ -50,7 +50,7 @@ from analysis  import (get_decoder_interaction_matrix, decompose,
                        compute_class_means, mean_lat_norm)
 from visualize import save_fig
 
-DATA      = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA      = str(Path(__file__).resolve().parents[3] / "data")
 CKPT_DIR  = Path("checkpoints/mnist/latent_sweep")
 SEEDS_DIR = Path("checkpoints/mnist/seeds")
 RESULTS   = "figures/exp16_results.json"

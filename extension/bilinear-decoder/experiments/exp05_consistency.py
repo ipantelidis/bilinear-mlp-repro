@@ -13,6 +13,7 @@ Figure saved:
     figures/mnist/exp05_consistency.png
 """
 
+import os
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -26,7 +27,7 @@ from analysis import get_decoder_interaction_matrix, decompose, mean_lat_norm
 from visualize import save_fig
 
 SEEDS = [0, 1, 2, 3, 4]
-DATA  = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
 
 
 def _synth_images(model, mean_imgs, scale):

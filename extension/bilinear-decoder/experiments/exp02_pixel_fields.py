@@ -15,6 +15,7 @@ Outputs:
     figures/exp02_results.json   (effective-rank map + summary)
 """
 
+import os
 import json
 import torch
 import numpy as np
@@ -26,7 +27,7 @@ from analysis import get_decoder_interaction_matrix, decompose, mean_lat_norm
 from visualize import save_fig
 
 CKPT = "checkpoints/mnist/model.pt"
-DATA = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
 
 GRID_ROWS, GRID_COLS = 10, 10   # sample every (28/10) ≈ 3 pixels
 PIXEL_ROWS = np.linspace(0, 27, GRID_ROWS, dtype=int)

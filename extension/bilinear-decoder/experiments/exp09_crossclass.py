@@ -42,7 +42,7 @@ from visualize import similarity_heatmap, save_fig
 CKPT_DEC = "checkpoints/mnist/model.pt"
 CKPT_ENC = os.path.join(os.path.dirname(__file__), "../../bilinear-encoder/checkpoints/mnist/model.pt")
 ENC_DIR  = os.path.join(os.path.dirname(__file__), "../../bilinear-encoder")
-DATA     = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
 
 INTERP_PAIRS = [(4, 9), (1, 7), (0, 6)]
 N_STEPS      = 7

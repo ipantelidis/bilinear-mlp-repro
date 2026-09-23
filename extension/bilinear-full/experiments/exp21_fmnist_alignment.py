@@ -39,7 +39,7 @@ from analysis  import (get_encoder_interaction_matrix, get_decoder_interaction_m
                        decompose, mean_lat_norm)
 from visualize import save_fig
 
-DATA   = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA   = str(Path(__file__).resolve().parents[3] / "data")
 CKPTS  = [("main", "checkpoints/fashion_mnist/model.pt")] + \
          [(f"seed{s}", f"checkpoints/fashion_mnist/seeds/seed{s}.pt") for s in range(5)]
 N_RAND = 500

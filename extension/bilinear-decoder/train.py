@@ -4,8 +4,22 @@ train.py — Loss function and training loop for the bilinear decoder VAE.
     L(x; β) = E[log p(x|z)]  −  β · KL(q(z|x) || p(z))
 
 Gaussian input noise is applied during training following Pearce et al. (2025).
+
+CLI (run from bilinear-decoder/) — retrains the shipped checkpoints from
+scratch with the recipe used to produce them (epochs=30, lr=1e-3, wd=0.01,
+β=1, noise_std=0.3, batch 128, AdamW + cosine LR, best-test checkpointing):
+
+    python train.py --dataset mnist                      # checkpoints/mnist/model.pt
+    python train.py --dataset fashion_mnist              # checkpoints/fashion_mnist/model.pt
+    python train.py --dataset mnist --seed 3             # checkpoints/mnist/seeds/seed3.pt
+    python train.py --dataset mnist --d-latent 20 --seed 0
+                       # checkpoints/mnist/latent_sweep/d20_seed0.pt
+
+Existing checkpoint files are never overwritten (the run is refused).
+Optional overrides, mainly for smoke tests: --epochs N --ckpt-dir DIR.
 """
 
+import argparse
 import json
 from pathlib import Path
 
@@ -80,3 +94,83 @@ def load_checkpoint(model, path, device="cpu"):
     model.to(device); model.eval()
     print(f"Loaded {path}  (epoch {ckpt['epoch']})")
     return ckpt
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CLI — retrain the shipped checkpoints from scratch
+# ─────────────────────────────────────────────────────────────────────────────
+
+_DATASETS = {"mnist": "MNIST", "fashion_mnist": "FashionMNIST", "kmnist": "KMNIST"}
+
+
+def _build_loaders(dataset, data_dir, batch_size=128, generator=None):
+    """Standard loaders: torchvision, flattened [0,1] images."""
+    from torch.utils.data import DataLoader
+    from torchvision import datasets, transforms
+
+    cls = getattr(datasets, _DATASETS[dataset])
+    tfm = transforms.Compose([transforms.ToTensor(),
+                              transforms.Lambda(lambda x: x.view(-1))])
+    tr = cls(str(data_dir), train=True,  download=True, transform=tfm)
+    te = cls(str(data_dir), train=False, download=True, transform=tfm)
+    return (DataLoader(tr, batch_size=batch_size, shuffle=True,
+                       generator=generator, num_workers=2, pin_memory=True),
+            DataLoader(te, batch_size=512, shuffle=False,
+                       num_workers=2, pin_memory=True))
+
+
+def _cli():
+    from models import DecBilinearVAE
+
+    ap = argparse.ArgumentParser(
+        description="Retrain a DecBilinearVAE checkpoint from scratch "
+                    "(existing files are never overwritten).")
+    ap.add_argument("--dataset", choices=sorted(_DATASETS), default="mnist")
+    ap.add_argument("--seed", type=int, default=None,
+                    help="seed run → checkpoints/<dataset>/seeds/seedN.pt "
+                         "(omit for the main model.pt)")
+    ap.add_argument("--d-latent", type=int, default=10,
+                    help="latent dimensionality; values ≠ 10 go to "
+                         "checkpoints/mnist/latent_sweep/d{D}_seed{S}.pt")
+    ap.add_argument("--epochs", type=int, default=30)
+    ap.add_argument("--ckpt-dir", default=None,
+                    help="override the checkpoint directory (smoke tests)")
+    ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    a = ap.parse_args()
+
+    here = Path(__file__).resolve().parent
+    data_dir = here.parents[1] / "data"                 # <repo>/data
+
+    generator = None
+    if a.d_latent != 10:
+        # Latent-dimension sweep runs (exp16 protocol): mnist only, seeded
+        # DataLoader shuffling, d{D}_seed{S} naming.
+        if a.dataset != "mnist":
+            ap.error("--d-latent sweeps are defined for --dataset mnist only")
+        seed = a.seed if a.seed is not None else 0
+        ckpt_dir = Path(a.ckpt_dir) if a.ckpt_dir else here / "checkpoints/mnist/latent_sweep"
+        run_name = f"d{a.d_latent}_seed{seed}"
+        torch.manual_seed(seed)
+        generator = torch.Generator().manual_seed(seed)
+    elif a.seed is not None:
+        ckpt_dir = Path(a.ckpt_dir) if a.ckpt_dir else here / f"checkpoints/{a.dataset}/seeds"
+        run_name = f"seed{a.seed}"
+        torch.manual_seed(a.seed)
+    else:
+        ckpt_dir = Path(a.ckpt_dir) if a.ckpt_dir else here / f"checkpoints/{a.dataset}"
+        run_name = "model"
+
+    out = ckpt_dir / f"{run_name}.pt"
+    if out.exists():
+        print(f"REFUSED: {out} already exists — delete it first to retrain.")
+        return
+
+    model = DecBilinearVAE(d_latent=a.d_latent)
+    tr, te = _build_loaders(a.dataset, data_dir, generator=generator)
+    train(model, tr, te, epochs=a.epochs, lr=1e-3, weight_decay=0.01,
+          beta=1.0, noise_std=0.3, device=a.device,
+          checkpoint_dir=str(ckpt_dir), run_name=run_name)
+
+
+if __name__ == "__main__":
+    _cli()

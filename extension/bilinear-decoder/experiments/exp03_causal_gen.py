@@ -17,6 +17,7 @@ Figures saved:
     figures/mnist/exp03_latent_pca.png
 """
 
+import os
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -30,7 +31,7 @@ from analysis import get_decoder_interaction_matrix, decompose, compute_class_me
 from visualize import save_fig
 
 CKPT = "checkpoints/mnist/model.pt"
-DATA = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
 
 
 def _build_loader():

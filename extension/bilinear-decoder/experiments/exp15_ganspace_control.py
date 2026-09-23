@@ -28,6 +28,7 @@ Outputs:
     figures/exp15_results.json
 """
 
+import os
 import json
 import numpy as np
 import torch
@@ -41,7 +42,7 @@ from train     import load_checkpoint
 from analysis  import get_decoder_interaction_matrix, decompose
 from visualize import save_fig
 
-DATA    = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA    = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
 CKPT    = "checkpoints/mnist/model.pt"
 OUT_FIG = "figures/mnist/exp15_ganspace_control.png"
 OUT_JSON = "figures/exp15_results.json"

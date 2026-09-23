@@ -39,8 +39,8 @@ from train    import load_checkpoint
 from analysis import (get_decoder_interaction_matrix, decompose, mean_lat_norm)
 from visualize import save_fig
 
-DATA    = "/home/v25/ippa6201/bilinear-mlp-repro/data"
-DEC_DIR = "/home/v25/ippa6201/bilinear-mlp-repro/extension/bilinear-decoder"
+DATA    = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
+DEC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "bilinear-decoder")
 
 
 def _load_module(name, filepath):

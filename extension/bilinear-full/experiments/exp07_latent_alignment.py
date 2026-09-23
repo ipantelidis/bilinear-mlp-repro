@@ -22,6 +22,7 @@ Figure saved:
     figures/mnist/exp07_latent_alignment.png
 """
 
+import os
 import json
 import torch
 import numpy as np
@@ -36,7 +37,7 @@ from analysis import (get_encoder_interaction_matrix, get_decoder_interaction_ma
 from visualize import save_fig
 
 CKPT = "checkpoints/mnist/model.pt"
-DATA = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
 
 
 def _cos(a, b):
