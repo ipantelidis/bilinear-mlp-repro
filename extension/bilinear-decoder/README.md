@@ -124,7 +124,7 @@ decoder at all: ordinary gradient machinery can search for latent directions
 on *any* decoder. Exp 17 runs the same protocol (centered targets
 `p*_c − mean(p*)`, per-model norm budget = mean latent norm, causal test =
 decode → encode → nearest class-mean latent) with gradient-based direction
-finders on a standard MLP-decoder VAE (VanillaVAE from `extension_full/`,
+finders on a standard MLP-decoder VAE (VanillaVAE from `../vanilla-vae/`,
 same encoder as DecBilinearVAE; decoder z(10) → Linear(256) → ReLU →
 Linear(784) → Sigmoid):
 
@@ -242,12 +242,18 @@ python run_all.py 1 9 14    # specific experiments
 
 ## Training
 
-The checkpoints are pre-trained. To retrain from scratch:
+The checkpoints are pre-trained. To retrain from scratch (same recipe:
+epochs 30, lr 1e-3, weight decay 0.01, β=1, input noise 0.3, batch 128,
+AdamW + cosine LR, best-test checkpointing; existing files are never
+overwritten):
 
 ```bash
-cd /path/to/bilinear-mlp-repro
-python extension_full/run.py --mode train --model dec_bilinear_vae --dataset mnist --epochs 30 --device cuda:0
-python extension_full/run.py --mode train --model dec_bilinear_vae --dataset fashion_mnist --epochs 30 --device cuda:0
+cd extension/bilinear-decoder
+python train.py --dataset mnist                        # checkpoints/mnist/model.pt
+python train.py --dataset fashion_mnist                # checkpoints/fashion_mnist/model.pt
+python train.py --dataset kmnist                       # checkpoints/kmnist/model.pt
+python train.py --dataset mnist --seed 0               # checkpoints/mnist/seeds/seed0.pt (0–4)
+python train.py --dataset mnist --d-latent 20 --seed 0 # checkpoints/mnist/latent_sweep/d20_seed0.pt
 ```
 
 ## Reference

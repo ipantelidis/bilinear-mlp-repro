@@ -85,6 +85,22 @@ All figures are written to `figures/mnist/` or `figures/fashion_mnist/`.
 
 ---
 
+## Training
+
+The checkpoints are pre-trained. To retrain from scratch (epochs 30,
+lr 1e-3, weight decay 0.01, β=1, input noise 0.3, batch 128, AdamW +
+cosine LR, best-test checkpointing; existing files are never overwritten):
+
+```bash
+cd bilinear-encoder/
+python train.py --dataset mnist            # checkpoints/mnist/model.pt
+python train.py --dataset fashion_mnist    # checkpoints/fashion_mnist/model.pt
+python train.py --dataset kmnist           # checkpoints/kmnist/model.pt
+python train.py --dataset mnist --seed 0   # checkpoints/mnist/seeds/seed0.pt (0–4)
+```
+
+---
+
 ## Experiments
 
 | # | Script | What it measures |

@@ -78,11 +78,13 @@ python run_all.py 11 18      # a subset
 ## Checkpoints
 
 `checkpoints/mnist/{model.pt, seeds/seed0..4.pt, epochs/epoch01..20.pt}` and
-`checkpoints/fashion_mnist/{model.pt, seeds/seed0..4.pt}` (train with
-`train.py`, `train_epochs.py`, `train_fmnist.py`; existing files are skipped).
+`checkpoints/fashion_mnist/{model.pt, seeds/seed0..4.pt}` (retrain the
+per-epoch and FashionMNIST checkpoints with `train_epochs.py` /
+`train_fmnist.py`; `train.py` holds the shared loss + checkpoint-loading
+utilities; existing checkpoint files are skipped, never overwritten).
 Exp 19 reads its v3 checkpoints from `checkpoints/mnist/v3/` (shipped.pt plus
 the repaired-loss `lam1_seed*` / `lam1000_seed*` seeds, trained by
-`extension_full/proto_full_exp19_train.py`).
+`train_v3.py`, e.g. `python train_v3.py train 1000 0 1 2`).
 
 ## Reference
 

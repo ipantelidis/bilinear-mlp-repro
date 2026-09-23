@@ -11,22 +11,23 @@ The corrected latent-space alignment measure (exp07):
 is computed for four checkpoint groups:
 
   v2               : main + 5 seeds (no alignment loss) — the exp07/exp15 numbers
-  v3-shipped       : extension_full full_bilinear_vae_v3/model.pt, nominally
-                     trained WITH the explicit alignment loss
+  v3-shipped       : checkpoints/mnist/v3/shipped.pt, the prototype v3
+                     checkpoint, nominally trained WITH the explicit
+                     alignment loss
   v3-fixed λ=1     : 3 fresh seeds trained with a REPAIRED alignment loss at the
                      recommended strength (run.py --align_lambda help: "1.0")
   v3-fixed λ=1000  : 3 fresh seeds at 1000× strength, where the loss demonstrably
                      optimises its own objective
 
-Discovery along the way: FullBilinearVAE_v3.alignment_loss (extension_full/
-models.py) detaches BOTH Jacobians — the encoder one via .detach(), the decoder
-one under torch.no_grad() — so the returned scalar has grad_fn=None and
-align_lambda · L_align contributes ZERO gradient.  Any v3 checkpoint trained
-through run.py is therefore effectively a v2 run (this experiment re-verifies
-the detachment programmatically and the shipped checkpoint's Jacobian cosine
-confirms it: 0.375 vs v2's 0.374).  The "v3-fixed" seeds repair the loss with
-create_graph=True autograd + differentiable finite differences (see
-extension_full/proto_full_exp19_train.py).
+Discovery along the way: the alignment_loss of the shipped v3 prototype (its
+loss is reproduced verbatim below) detaches BOTH Jacobians — the encoder one
+via .detach(), the decoder one under torch.no_grad() — so the returned scalar
+has grad_fn=None and align_lambda · L_align contributes ZERO gradient.  Any v3
+checkpoint trained with that loss is therefore effectively a v2 run (this
+experiment re-verifies the detachment programmatically and the shipped
+checkpoint's Jacobian cosine confirms it: 0.375 vs v2's 0.374).  The
+"v3-fixed" seeds repair the loss with create_graph=True autograd +
+differentiable finite differences (see train_v3.py).
 
 Manipulation check: the mean Jacobian cosine |cos(∂μ_k/∂x, ∂out/∂z_k)| — the
 quantity the alignment loss actually optimises — is reported per checkpoint.
@@ -43,7 +44,6 @@ Outputs:
 """
 
 import json
-import importlib.util
 import torch
 import torch.nn.functional as Fn
 import numpy as np
@@ -57,10 +57,7 @@ from analysis  import (get_encoder_interaction_matrix, get_decoder_interaction_m
                        decompose, mean_lat_norm)
 from visualize import save_fig
 
-DATA    = "/home/v25/ippa6201/bilinear-mlp-repro/data"
-# v3 checkpoints live in-project; extension_full (the untracked working dir)
-# is only needed for the optional shipped-loss detachment re-verification.
-XF      = Path(__file__).resolve().parents[3] / "extension_full"
+DATA    = str(Path(__file__).resolve().parents[3] / "data")
 V3DIR   = Path("checkpoints/mnist/v3")
 N_RAND  = 500
 N_JAC   = 256   # test images for the Jacobian manipulation check
@@ -80,18 +77,62 @@ def _cos(a, b):
     return float(torch.dot(a, b) / (a.norm() * b.norm() + 1e-8))
 
 
+class _ShippedV3(FullBilinearVAE):
+    """The shipped v3 prototype, reproduced in-project.
+
+    The prototype's v3 architecture is identical to FullBilinearVAE here
+    (bilinear encoder + linear skip, bilinear decoder + linear skip); the only
+    addition is alignment_loss.  The method below is a verbatim copy of the
+    shipped v3 alignment_loss, kept so the detachment check runs without the
+    prototype tree.  (Only the functional-module alias differs: this file
+    imports torch.nn.functional as Fn.)
+    """
+
+    def alignment_loss(self, x: torch.Tensor, z: torch.Tensor,
+                       delta: float = 0.3) -> torch.Tensor:
+        """
+        Compute the alignment loss for one randomly sampled latent dimension.
+
+        Args:
+            x     : clean input batch, shape (B, 784)
+            z     : reparameterised latent codes, shape (B, d_latent)
+            delta : finite-difference step for the decoder Jacobian
+
+        Returns:
+            scalar loss (1 − mean |cosine similarity|)
+        """
+        B = x.size(0)
+        k = torch.randint(0, self.d_latent, (1,)).item()
+
+        # ── encoder Jacobian ∂μ_k/∂x via autograd ────────────────────
+        x_ag = x.detach().requires_grad_(True)
+        mu_ag, _ = self.encode(x_ag)
+        mu_ag[:, k].sum().backward()
+        enc_jac = x_ag.grad.detach()                        # (B, 784)
+
+        # ── decoder Jacobian ∂output/∂z_k via finite differences ─────
+        z_det = z.detach()
+        e_k   = torch.zeros_like(z_det)
+        e_k[:, k] = delta
+        with torch.no_grad():
+            dec_jac = (self.decoder(z_det + e_k)
+                       - self.decoder(z_det - e_k)) / (2 * delta)   # (B, 784)
+
+        # ── cosine similarity averaged over batch ─────────────────────
+        cos = Fn.cosine_similarity(enc_jac.view(B, -1),
+                                   dec_jac.view(B, -1), dim=1)        # (B,)
+        return 1.0 - cos.abs().mean()
+
+
 def verify_shipped_loss_detached():
-    """Import extension_full's FullBilinearVAE_v3 and check its alignment loss
+    """Instantiate the shipped v3 loss (verbatim copy above) and check that it
     carries no gradient.  Returns True/False/None (None = could not check)."""
     try:
-        spec = importlib.util.spec_from_file_location("xf_models", XF / "models.py")
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
         torch.manual_seed(0)
-        m = mod.FullBilinearVAE_v3()
+        m = _ShippedV3()
         x = torch.rand(4, 784)
         mu, logvar = m.encode(x)
-        z = m.reparameterise(mu.detach(), logvar.detach())
+        z = m.reparametrize(mu.detach(), logvar.detach())
         return not m.alignment_loss(x, z).requires_grad
     except Exception as e:                                  # pragma: no cover
         print(f"  (could not verify shipped loss: {e})")
@@ -214,7 +255,7 @@ def main():
                    "note": ("Corrected exp07 measure. v3-shipped was trained through "
                             "run.py whose alignment loss is detached (zero gradient); "
                             "v3-fixed seeds use a repaired differentiable loss "
-                            "(extension_full/proto_full_exp19_train.py).")},
+                            "(train_v3.py).")},
                   f, indent=2)
 
     # ── Figure: one row of two panels ────────────────────────

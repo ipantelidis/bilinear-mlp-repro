@@ -18,13 +18,14 @@ This experiment:
   3. Shows reconstruction quality difference
   4. Shows the degenerate latent structure of V1
 
-V1 checkpoint: extension/checkpoints/mnist/full_bilinear_vae/model.pt
+V1 checkpoint: checkpoints/mnist/v1/model.pt
 V2 checkpoint: checkpoints/mnist/model.pt (our current model)
 
 Figure saved:
     figures/mnist/exp11_v1_failure.png
 """
 
+import os
 import torch
 import torch.nn as nn
 import numpy as np
@@ -36,9 +37,9 @@ from models   import FullBilinearVAE, BilinearLayer
 from train    import load_checkpoint
 from visualize import save_fig
 
-V1_CKPT = "/home/v25/ippa6201/bilinear-mlp-repro/extension/checkpoints/mnist/full_bilinear_vae/model.pt"
+V1_CKPT = "checkpoints/mnist/v1/model.pt"
 V2_CKPT = "checkpoints/mnist/model.pt"
-DATA    = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA    = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
 
 
 class _FullBilinearVAE_v1(nn.Module):
@@ -92,7 +93,6 @@ def main():
         batch_size=512, shuffle=False)
 
     v1 = _FullBilinearVAE_v1()
-    torch.load(V1_CKPT, map_location="cpu", weights_only=True)
     ckpt1 = torch.load(V1_CKPT, map_location="cpu", weights_only=True)
     v1.load_state_dict(ckpt1["model_state"]); v1.eval()
     print(f"V1 loaded (epoch {ckpt1['epoch']})")

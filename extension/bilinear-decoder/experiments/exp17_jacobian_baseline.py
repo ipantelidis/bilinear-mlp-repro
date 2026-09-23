@@ -52,10 +52,10 @@ from analysis  import (get_decoder_interaction_matrix, decompose,
                        compute_class_means, mean_lat_norm)
 from visualize import save_fig
 
-DATA         = "/home/v25/ippa6201/bilinear-mlp-repro/data"
+DATA         = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
 CKPT_BILINEAR = "checkpoints/mnist/model.pt"
 _VANILLA_DIR  = os.path.join(os.path.dirname(__file__),
-                             "../../../extension_full/checkpoints/mnist/vanilla_vae")
+                             "../../vanilla-vae/checkpoints/mnist")
 CKPT_VANILLA  = os.path.join(_VANILLA_DIR, "model.pt")
 CKPT_VANILLA_SEEDS = {s: os.path.join(_VANILLA_DIR, f"seeds/seed{s}.pt")
                       for s in (1, 2, 3)}
@@ -68,7 +68,7 @@ LR         = 0.05
 SEED       = 0
 
 
-# ── VanillaVAE matching the extension_full checkpoint key layout ───────────
+# ── VanillaVAE matching the vanilla-vae checkpoint key layout ──────────────
 # (same inline definition as exp12; encoder mirrors DecBilinearVAE's encoder,
 #  decoder is a plain MLP: z(10) → Linear(256) → ReLU → Linear(784) → Sigmoid)
 class VanillaVAE(nn.Module):

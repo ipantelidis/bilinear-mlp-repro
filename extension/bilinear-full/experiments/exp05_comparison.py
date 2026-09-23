@@ -20,6 +20,8 @@ import os
 import json
 import importlib.util
 import torch
+import torch.nn as nn
+import torch.nn.functional as Fn
 import numpy as np
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
@@ -29,11 +31,12 @@ from models import FullBilinearVAE
 from train  import load_checkpoint, elbo_loss
 from visualize import save_fig
 
-DATA     = "/home/v25/ippa6201/bilinear-mlp-repro/data"
-REPO     = "/home/v25/ippa6201/bilinear-mlp-repro"
-ENC_DIR  = os.path.join(REPO, "extension/bilinear-encoder")
-DEC_DIR  = os.path.join(REPO, "extension/bilinear-decoder")
-EXT_FULL = os.path.join(REPO, "extension_full")
+_HERE    = os.path.dirname(os.path.abspath(__file__))
+DATA     = os.path.join(_HERE, "..", "..", "..", "data")
+ENC_DIR  = os.path.join(_HERE, "..", "..", "bilinear-encoder")
+DEC_DIR  = os.path.join(_HERE, "..", "..", "bilinear-decoder")
+CKPT_VANILLA = os.path.join(os.path.dirname(__file__),
+                            "../../vanilla-vae/checkpoints/mnist/model.pt")
 
 
 def _load_module(name, filepath):
@@ -41,6 +44,58 @@ def _load_module(name, filepath):
     mod  = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+# ── VanillaVAE matching the vanilla-vae checkpoint key layout ──────────────
+# (same inline definition as bilinear-decoder exp12/exp17; encoder mirrors
+#  DecBilinearVAE's encoder, decoder is a plain MLP:
+#  z(10) → Linear(256) → ReLU → Linear(784) → Sigmoid)
+class VanillaVAE(nn.Module):
+    def __init__(self, d_input=784, d_enc1=256, d_enc2=512, d_latent=10, d_dec=256):
+        super().__init__()
+        self.d_latent  = d_latent
+        self.enc_fc1   = nn.Linear(d_input, d_enc1)
+        self.enc_fc2   = nn.Linear(d_enc1,  d_enc2)
+        self.fc_mu     = nn.Linear(d_enc2,  d_latent)
+        self.fc_logvar = nn.Linear(d_enc2,  d_latent)
+
+        class _Dec(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.fc1 = nn.Linear(d_latent, d_dec)
+                self.fc2 = nn.Linear(d_dec, d_input)
+            def forward(self, z):
+                return torch.sigmoid(self.fc2(Fn.relu(self.fc1(z))))
+
+        self.decoder = _Dec()
+
+    def encode(self, x):
+        h = Fn.relu(self.enc_fc1(x))
+        h = Fn.relu(self.enc_fc2(h))
+        return self.fc_mu(h), self.fc_logvar(h)
+
+    def decode(self, z):
+        return self.decoder(z)
+
+    def reparameterise(self, mu, logvar):
+        if self.training:
+            std = torch.exp(0.5 * logvar)
+            return mu + std * torch.randn_like(std)
+        return mu
+
+    def forward(self, x):
+        mu, logvar = self.encode(x)
+        z = self.reparameterise(mu, logvar)
+        return self.decode(z), mu, logvar
+
+
+def load_vanilla(path):
+    model = VanillaVAE()
+    ckpt = torch.load(path, map_location="cpu", weights_only=True)
+    model.load_state_dict(ckpt["model_state"])
+    model.eval()
+    print(f"Loaded {path}")
+    return model
 
 
 def _eff_rank(model, loader, device="cpu"):
@@ -86,13 +141,9 @@ def main():
     # Load all four models
     models = {}
 
-    # 1. VanillaVAE
+    # 1. VanillaVAE (baseline weights from ../vanilla-vae)
     try:
-        ext_models = _load_module("ext_models", os.path.join(EXT_FULL, "models.py"))
-        ext_train  = _load_module("ext_train",  os.path.join(EXT_FULL, "train.py"))
-        van = ext_models.VanillaVAE()
-        ext_train.load_checkpoint(van, os.path.join(EXT_FULL, "checkpoints/mnist/vanilla_vae/model.pt"))
-        models["VanillaVAE"] = van
+        models["VanillaVAE"] = load_vanilla(CKPT_VANILLA)
     except Exception as e:
         print(f"  VanillaVAE not loaded: {e}")
 

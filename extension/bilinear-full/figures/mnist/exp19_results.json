@@ -294,5 +294,5 @@
   },
   "rand_baseline_pooled_mean": 0.2577695613984471,
   "rand_baseline_pooled_std": 0.05634093608647146,
-  "note": "Corrected exp07 measure. v3-shipped was trained through run.py whose alignment loss is detached (zero gradient); v3-fixed seeds use a repaired differentiable loss (extension_full/proto_full_exp19_train.py)."
+  "note": "Corrected exp07 measure. v3-shipped was trained through run.py whose alignment loss is detached (zero gradient); v3-fixed seeds use a repaired differentiable loss (train_v3.py)."
 }

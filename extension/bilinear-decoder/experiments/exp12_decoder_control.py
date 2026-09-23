@@ -25,7 +25,6 @@ Figure saved:
 """
 
 import os
-import importlib.util
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -41,37 +40,12 @@ from visualize import similarity_heatmap, save_fig
 
 CKPT_TRAINED = "checkpoints/mnist/model.pt"
 CKPT_VANILLA = os.path.join(os.path.dirname(__file__),
-                             "../../../extension_full/checkpoints/mnist/vanilla_vae/model.pt")
-DATA = "/home/v25/ippa6201/bilinear-mlp-repro/data"
-
-
-# ── Minimal VanillaVAE matching the saved checkpoint keys ─────────────────
-class _VanillaVAE(nn.Module):
-    def __init__(self, d_input=784, d_enc1=256, d_enc2=512, d_latent=10, d_dec=256):
-        super().__init__()
-        self.enc_fc1   = nn.Linear(d_input, d_enc1)
-        self.enc_fc2   = nn.Linear(d_enc1,  d_enc2)
-        self.fc_mu     = nn.Linear(d_enc2,  d_latent)
-        self.fc_logvar = nn.Linear(d_enc2,  d_latent)
-        self.decoder   = nn.Sequential(
-            nn.Linear(d_latent, d_dec), nn.ReLU(),
-            nn.Linear(d_dec, d_input),  nn.Sigmoid(),
-        )
-        # rename to match checkpoint keys: decoder.fc1, decoder.fc2
-        self.decoder[0] = nn.Linear(d_latent, d_dec)
-        self.decoder[2] = nn.Linear(d_dec, d_input)
-
-    def encode(self, x):
-        h = F.relu(self.enc_fc1(x))
-        h = F.relu(self.enc_fc2(h))
-        return self.fc_mu(h), self.fc_logvar(h)
-
-    def decode(self, z):
-        return self.decoder(z)
+                             "../../vanilla-vae/checkpoints/mnist/model.pt")
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data")
 
 
 class VanillaVAE(nn.Module):
-    """VanillaVAE matching the extension_full checkpoint key layout."""
+    """VanillaVAE matching the vanilla-vae checkpoint key layout."""
     def __init__(self, d_input=784, d_enc1=256, d_enc2=512, d_latent=10, d_dec=256):
         super().__init__()
         self.enc_fc1   = nn.Linear(d_input, d_enc1)
