@@ -1,7 +1,7 @@
 """
-run_all.py — Run all 10 encoder analysis experiments in sequence.
+run_all.py — Run all 11 encoder analysis experiments in sequence.
 
-Usage (from the extension/ directory):
+Usage (from the bilinear-encoder/ directory):
     python run_all.py            # run all experiments
     python run_all.py 1 3 5      # run only experiments 1, 3, 5
 

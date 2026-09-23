@@ -20,6 +20,8 @@ kaleido          # required for plotly static image export
 numpy
 scipy
 pandas
+scikit-learn     # linear probes / clustering metrics (extension)
+tqdm
 
 # Augmentation
 kornia

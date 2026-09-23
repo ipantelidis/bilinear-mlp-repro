@@ -4,6 +4,17 @@ This repository reproduces the main interpretability claims from the paper "Bili
 
 The paper's contributions are organized below as seven claims, C1–C7. Each claim is a single testable statement about a *different* property of bilinear MLPs, so the claims can be verified (or falsified) independently — this structure is also the skeleton for the accompanying report. A full coverage table of every reproduced figure and appendix follows.
 
+### Repository structure
+
+```
+original/       the authors' released library (vendored unmodified)
+reproduction/   one self-contained directory per reproduced figure/appendix
+  image/          vision experiments  (C1–C4: figs 2–7, appendices A–F, M)
+  language/       language experiments (C5–C7: figs 8–9, appendices G–J, N–O)
+extension/      bilinear MLPs in VAEs (see the extension section below)
+data/           datasets, downloaded automatically on first use
+```
+
 ---
 
 ### C1 — Interpretability: top eigenvectors are human-recognizable features
@@ -72,7 +83,7 @@ The paper's contributions are organized below as seven claims, C1–C7. Each cla
 
 - **Paper evidence:** Appendix I (Table 6), Appendix J (Fig. 25)
 - **Our code:** `reproduction/language/appendix_i/`, `appendix_j/`
-- **Status:** in progress — both experiments implemented; training runs ongoing.
+- **Status:** partially reproduced — the core of the claim holds: after 5 epochs the bilinear model trails SwiGLU by only 0.006 nats and matches ReGLU, and TinyLlama's gate anneals away with a modest, shrinking penalty (0.14 nats after 400M tokens vs the paper's 0.05). Absolute losses are not comparable (dataset, see deviations), the constant-time equalization does not manifest when all three variants run at identical wall-clock speed, and fine-tuning needs LR 3e-5 instead of the reported 6e-4.
 
 ---
 
@@ -126,7 +137,8 @@ exists (delete the cache file to force a rerun).
 ### Known deviations
 
 - **The authors' cleaned TinyStories dataset was never published** (and the
-  research repo that produced it is no longer on GitHub). The public
+  unofficial repository that held most of the original experiment code has
+  since been made private). The public
   `tdooms/ts-medium` checkpoint scores ≈2.9 loss on raw
   `roneneldan/TinyStories` validation vs the ≈1.34 the paper reports on
   their own data — we verified this gap is not explained by tokenization,
@@ -150,59 +162,60 @@ exists (delete the cache file to force a rerun).
 
 ---
 
-## Extension: Bilinear MLPs in Variational Autoencoders (VAE)
+## Extension: Bilinear MLPs in Variational Autoencoders
 
-Beyond reproducing the original claims, this repository introduces a **novel extension** by integrating bilinear MLPs into the **encoder of a variational autoencoder (VAE)**.
+Beyond the reproduction, the repository extends weight-based interpretability
+to a setting the original paper does not consider: generative models trained
+without labels. Three VAE families place the bilinear layer in the encoder,
+the decoder, or both, and an ordinary MLP VAE serves as the baseline.
 
-This extension investigates whether weight-based interpretability enabled by bilinear interactions can be preserved in a **generative, unsupervised setting**.
+### Layout
 
----
+```
+extension/
+  bilinear-encoder/   bilinear encoder, MLP decoder      (11 experiments)
+  bilinear-decoder/   MLP encoder, bilinear decoder      (18 experiments)
+  bilinear-full/      both halves bilinear               (21 experiments)
+  vanilla-vae/        MLP baseline checkpoints + trainer
+```
 
-### Motivation
+Each project is self-contained: `models.py`, `train.py`, `analysis.py`,
+`experiments/expNN_*.py`, pre-trained `checkpoints/`, and a `README.md` with
+its results. Every experiment prints its headline numbers and writes them to
+`figures/<dataset>/expNN_results.json`.
 
-- The original paper focuses exclusively on supervised classification
-- We ask whether bilinear interaction structure:
-  - Remains low-rank
-  - Produces interpretable eigenfeatures
-  - Organizes latent space in a semantically meaningful way
-- Crucially, this is studied **without using class labels during training**
+### Main findings
 
----
+- **Encoder features are causal.** Synthetic inputs built purely from the
+  weights are recognized by the encoder for 9–10 of 10 classes on MNIST,
+  Fashion-MNIST and KMNIST, far above 10-seed untrained baselines, and
+  pseudoinverse keys steer encodings into chosen classes.
+- **The decoder fails by default, and the failure has a mechanism.** The
+  interaction matrix is linear in the probe, so overlapping class-mean
+  targets manufacture a spurious near-universal generative direction.
+  Centering the targets is the exact correction and lifts causal generation
+  from 3/10 to 9/10 (9.5 ± 0.5 on the fully bilinear model).
+- **Recognition is high-rank, generation is rank one.** The corrected
+  decoder structure is carried by the single top eigenvector, robustly
+  across latent dimensions 10–32.
+- **Purely bilinear decoders are exactly even**, `decode(z) ≡ decode(−z)`;
+  a linear skip connection breaks the symmetry and fixes training.
+- **Honest boundaries.** Gradient baselines on a vanilla VAE match the raw
+  synthesis capability (the value of bilinearity is the closed-form, global,
+  gradient-free answer), and a hypothesized encoder–decoder eigenvector
+  alignment is null even when an explicit alignment loss demonstrably
+  optimizes its own objective.
 
-### What We Show
+### Running
 
-- Replacing a standard MLP encoder with a bilinear MLP encoder:
-  - Preserves reconstruction quality
-  - Does not destabilize VAE training
-- Weight-based eigenanalysis of the encoder reveals:
-  - Structured input-space eigenfeatures
-  - Low-rank interaction structure in latent mappings
-- Class-conditional latent analyses reveal:
-  - Digit-aligned eigenfeatures
-  - Semantically meaningful organization of latent space
-- Eigenfeature-guided interpolations enable:
-  - Smooth transitions between digit classes
-  - Interpretable control directions in latent space
+```bash
+cd extension/bilinear-encoder && python run_all.py   # or bilinear-decoder / bilinear-full
+python run_all.py 05 11                              # a subset
+```
 
----
-
-### Analyses Included
-
-- Reconstruction quality of bilinear-encoder VAE
-- Eigenvalue spectra of latent interaction matrices
-- Eigenfeature visualizations from:
-  - Individual latent dimensions
-  - Class-mean latent encodings
-- Eigenfeature-based interpolation between digit classes
-- Comparison of interaction structure in:
-  - Latent means (μ)
-  - Latent log-variances (log σ²)
-
----
-
-### Code location
-
-`extension_full/bilinear_vae.ipynb` (prototype notebook; the packaged version lives in `extension/`)
+Checkpoints are included, so experiments run without any training. Each
+project's `train.py` retrains its models from scratch if desired (existing
+checkpoint files are never overwritten).
 
 ---
 

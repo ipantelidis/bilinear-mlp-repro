@@ -1,5 +1,5 @@
 """
-run_all.py — Run all 6 bilinear-full experiments.
+run_all.py — Run all 21 bilinear-full experiments.
 
 Usage (from the bilinear-full/ directory):
     python run_all.py            # run all

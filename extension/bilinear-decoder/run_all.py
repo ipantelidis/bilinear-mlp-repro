@@ -1,5 +1,5 @@
 """
-run_all.py — Run all 14 decoder analysis experiments in sequence.
+run_all.py — Run all 18 decoder analysis experiments in sequence.
 
 Usage (from the bilinear-decoder/ directory):
     python run_all.py            # run all experiments
