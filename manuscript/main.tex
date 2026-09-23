@@ -9,12 +9,13 @@
 \input{math_commands.tex}
 \def\vsigma{{\bm{\sigma}}} % not in the dlbook macro set
 
-\usepackage{hyperref}
 \usepackage{url}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{amsmath}
 \usepackage{amsthm}
+\usepackage{float}
+\usepackage{hyperref}
 
 \newtheorem{proposition}{Proposition}
 
@@ -36,31 +37,27 @@
 \maketitle
 
 \begin{abstract}
-Bilinear multilayer perceptrons (MLPs) replace element-wise nonlinearities with the
-element-wise product of two linear maps, which makes the layer's computation an exact
-quadratic form in its input. \citet{pearce2025bilinear} showed that eigendecomposing
-the resulting interaction matrices, using the weights alone, recovers interpretable
-features in image classifiers and traceable circuits in language models. We first
-reproduce this work across both domains, organizing it into seven independently
-testable claims; six reproduce, and the seventh reproduces up to caveats we trace to
-a specific obstacle, the unavailability of the cleaned dataset behind the published
-checkpoints. We then extend weight-based interpretability to variational
-autoencoders, where no output has a label. On the encoder side the method transfers
-directly and its features are causal: synthetic inputs built from eigenvectors alone
-are correctly recognized by the encoder in 9--10 of 10 classes across three
-datasets, far above random-initialization baselines. On the decoder side a naive
-transfer fails, and we show why: the interaction matrix is linear in the probe
-direction, so overlapping class-mean targets manufacture a spurious near-universal
-generative direction. Centering the targets is the canonical correction, and with it
-weight-based generation succeeds in 9 to 9.5 of 10 classes, robustly across latent
-dimensions 10 to 32. We further prove that a purely bilinear decoder is an exactly
-even function of its latent code, identify the one-line architectural fix, and
-report two carefully controlled negative results: gradient-based baselines on an
-ordinary VAE match the weight-based method's raw capability, locating its value in
-data-free, globally valid closed-form structure rather than synthesis power; and a
-hypothesized encoder--decoder eigenvector alignment is null even when an explicit
-alignment loss demonstrably optimizes its own objective during training. Code,
-per-experiment results, and trained checkpoints are available in our repository.
+Bilinear multilayer perceptrons (MLPs) replace the element-wise nonlinearity of an
+ordinary MLP with the product of two linear maps, which makes every output an exact
+quadratic form in the input. \citet{pearce2025bilinear} showed that eigendecomposing
+these quadratic forms, using the weights alone, uncovers interpretable features in
+image classifiers and traceable circuits in language models. This paper presents an
+independent reproduction of that work and an extension of it to a new model family.
+For the reproduction, we organize the original paper into seven testable claims and
+evaluate each one across the vision and language settings. Six reproduce. The
+seventh reproduces in part, and we trace the gap to a training dataset that was
+never released rather than to the method itself. For the extension, we ask whether
+weight-based interpretability survives the loss of labels and apply it to
+variational autoencoders, whose encoder and decoder raise two different versions of
+the question. On the encoder side the method transfers directly and the recovered
+features are causal. On the decoder side it fails at first, for a reason we
+identify exactly. The quadratic form is linear in the direction being probed, so
+overlapping probe directions create spurious shared structure, and centering the
+probes removes it. With this correction, weight-based generation succeeds for
+nearly all classes on three datasets. We further prove a symmetry degeneracy of
+purely bilinear decoders, and we mark the method's boundaries with two controlled
+negative results on gradient baselines and on encoder--decoder alignment. Code and
+complete experimental records accompany the submission.
 \end{abstract}
 
 \section{Introduction}
@@ -93,24 +90,25 @@ work. We reproduce the main figures and appendices of \citet{pearce2025bilinear}
 both the vision and the language settings, quantify results that the original
 presents qualitatively, and record every deviation we encountered together with its
 cause. Reproducing the language experiments required more than rerunning released
-code: the research repository behind the paper is no longer public, the cleaned
-training dataset was never released, and the vendored library predates breaking
-changes in its dependencies. Part of our contribution is documenting how far the
-published artifacts alone support the paper's claims, and where the missing pieces
-matter.
+code. The authors' core library is public, but no released code maps the paper's
+figures and appendices to runnable experiments, much of the remaining experiment
+code lived in an unofficial repository that has since been made private, and the
+cleaned training dataset was never released. Part of our contribution is therefore
+a self-contained, runnable experiment for every figure and appendix we cover,
+together with a record of where the missing artifacts matter.
 
 The second contribution extends weight-based interpretability to a setting the
 original paper does not consider: generative models trained without labels.
 Classifiers hand the analyst a meaningful output direction for free, one per class.
 A variational autoencoder \citep{kingma2014auto} does not, and its two halves pose
-different versions of the problem: the encoder's interaction matrices live in pixel
-space, the decoder's in latent space. We build three VAE families with bilinear
+different versions of the problem. The encoder's interaction matrices live in pixel
+space and the decoder's in latent space. We build three VAE families with bilinear
 layers in the encoder, the decoder, or both, and subject each to the full analysis.
 The encoder study confirms that the method transfers and that its features are
-causal. The decoder study is the core of the extension: the direct transfer fails,
+causal. The decoder study is the core of the extension. The direct transfer fails,
 the failure has an exact mathematical mechanism, and the corrected protocol turns a
 3/10 generation success rate into 9/10. Along the way we prove a symmetry pathology
-of purely bilinear decoders, delimit the method against gradient-based and PCA
+of purely bilinear decoders, compare the method against gradient-based and PCA
 baselines, and settle a natural alignment hypothesis with a controlled null result.
 
 \section{Scope of reproducibility}
@@ -133,9 +131,9 @@ classification accuracy, consistently across model sizes, and the retained
 eigenvectors are consistent across training runs.
 
 \item \textbf{C3 --- Regularization shapes features.} The character of the learned
-eigenfeatures is controlled by regularization: Gaussian input noise sparsifies and
-cleans them, revealing overfitting artifacts in unregularized models, while weight
-decay lowers the effective rank; geometric augmentations reshape features in
+eigenfeatures is controlled by regularization. Gaussian input noise sparsifies and
+cleans them, revealing overfitting artifacts in unregularized models, weight decay
+lowers the effective rank, and geometric augmentations reshape features in
 predictable ways.
 
 \item \textbf{C4 --- Causality.} Eigenvectors are causally meaningful rather than
@@ -183,18 +181,19 @@ $\mQ \leftarrow \tfrac{1}{2}(\mQ + \mQ^\top)$. The spectral theorem then gives
   \vx^\top \mQ \vx = \sum_{i=1}^{k} \lambda_i \, (\vv_i^\top \vx)^2,
   \label{eq:eig}
 \end{equation}
-with orthonormal eigenvectors $\vv_i$ and real eigenvalues $\lambda_i$: the layer's
-output along $\vu$ is a weighted sum of squared projections onto orthogonal input
-directions. All analyses in this paper are instances of Equation~\ref{eq:eig} for
-different choices of $\vu$. One consequence deserves emphasis because it drives the
-central finding of our extension: \textbf{$\mQ$ is linear in the probe direction
-$\vu$}, so probes that overlap produce interaction matrices that overlap.
+with orthonormal eigenvectors $\vv_i$ and real eigenvalues $\lambda_i$. The layer's
+output along $\vu$ is thus a weighted sum of squared projections onto orthogonal
+input directions. All analyses in this paper are instances of
+Equation~\ref{eq:eig} for different choices of $\vu$. One consequence deserves
+emphasis because it drives the central finding of our extension: \textbf{$\mQ$ is
+linear in the probe direction $\vu$}, so probes that overlap produce interaction
+matrices that overlap.
 
 \paragraph{Image classifiers.}
 Following the original architecture, the vision models consist of a linear embedding
 from $784$ pixels to $d_{\text{hidden}}$ dimensions, a single bilinear layer, and a
 linear classification head, with no biases. Unless stated otherwise we use
-$d_{\text{hidden}} = 512$; the model-size experiments (C2) sweep
+$d_{\text{hidden}} = 512$, and the model-size experiments (C2) sweep
 $d_{\text{hidden}} \in \{30, 50, 100, 300, 500, 1000\}$. Eigenvectors are computed in
 the embedding space and projected back to pixel space through the embedding weights
 for visualization.
@@ -221,8 +220,8 @@ gated MLP into a bilinear one.
 \paragraph{MNIST, Fashion-MNIST, and KMNIST.} All three contain 70{,}000 grayscale
 $28 \times 28$ images in 10 classes with the standard 60{,}000/10{,}000 split
 \citep{lecun1998mnist, xiao2017fashion, clanuwat2018kmnist}. Images are normalized
-to $[0, 1]$ and flattened. The reproduction uses the first two; the extension uses
-all three, with KMNIST (ten Hiragana characters with high intra-class variability)
+to $[0, 1]$ and flattened. The reproduction uses the first two, and the extension
+uses all three, with KMNIST (ten Hiragana characters with high intra-class variability)
 serving as the hardest generality check.
 
 \paragraph{TinyStories.} The 6-layer transformer and its SAEs were trained by the
@@ -254,13 +253,16 @@ including the extension's VAE training setup, is given in Appendix~\ref{app:hype
 \label{sec:setup}
 
 Our experiments build on the authors' released library
-(\url{https://github.com/tdooms/bilinear-decomposition}), which we vendor unmodified;
-every experiment is a self-contained script in our repository that imports from it.
-The auxiliary research repository referenced by the paper is no longer available on
-GitHub, so all training, evaluation and figure code beyond the library was
-re-implemented from the descriptions in the paper. Each experiment writes its figures
-alongside a JSON file with its quantitative results, and expensive steps (model
-training sweeps, eigendecompositions of up to 8192 SAE features) are cached to disk.
+(\url{https://github.com/tdooms/bilinear-decomposition}), which we vendor unmodified.
+The library provides the core decomposition tools, but no released code reproduces
+the paper's figures and appendices one by one. Much of the original experiment code
+lived in an unofficial companion repository, in unstructured form, and that
+repository has since been made private. We therefore provide one self-contained
+script per figure and appendix, re-implemented from the paper's descriptions where
+necessary. Each experiment writes its figures alongside a JSON file with its
+quantitative results, expensive steps (model training sweeps, eigendecompositions of
+up to 8192 SAE features) are cached to disk, and the scripts carry small documented
+shims for behavior changes in current versions of the underlying libraries.
 
 \textbf{C1} trains classifiers on MNIST and Fashion-MNIST and visualizes top
 eigenvectors per class (Figures~2--3 of the original; our Figure~\ref{fig:c1}).
@@ -294,69 +296,66 @@ reproduced and available in the repository.
 \subsection{Extension setup: bilinear layers in variational autoencoders}
 \label{sec:extmethod}
 
-The extension studies three VAE families on MNIST, Fashion-MNIST, and KMNIST, with
-the bilinear layer placed so that exactly one question is asked at a time:
+The extension studies three VAE families on MNIST, Fashion-MNIST, and KMNIST. The
+bilinear layer is placed so that each family asks one question at a time.
 
 \begin{itemize}
-\item \textbf{Encoder-bilinear}: $\vx(784) \to \text{Linear}(256) \to
-  \text{Bilinear}(512) \to \vmu, \log\vsigma^2 \in \R^{10}$, with an ordinary MLP
-  decoder. For any latent direction $\vmu^* \in \R^{10}$, the activation
-  $\vmu^{*\top}\vmu(\vx)$ is a quadratic form with interaction matrix
-  $\mQ \in \R^{784 \times 784}$; its eigenvectors are pixel-space patterns.
-\item \textbf{Decoder-bilinear}: an ordinary MLP encoder, and
+\item \textbf{Encoder-bilinear.} The encoder is $\vx(784) \to \text{Linear}(256)
+  \to \text{Bilinear}(512) \to \vmu, \log\vsigma^2 \in \R^{10}$ and the decoder is
+  an ordinary MLP. For any latent direction $\vmu^*$, the activation
+  $\vmu^{*\top}\vmu(\vx)$ is a quadratic form with a $784 \times 784$ interaction
+  matrix whose eigenvectors are pixel-space patterns.
+\item \textbf{Decoder-bilinear.} The encoder is an ordinary MLP and the decoder is
   $\vz(10) \to \text{Linear}(256) \to \text{Bilinear}(512) \to \text{Linear}(784)
-  \to \text{sigmoid}$, all without biases. For any pixel-space target
+  \to \text{sigmoid}$, without biases. For any pixel-space target
   $\vp^* \in \R^{784}$, the pre-sigmoid output satisfies
-  $\vp^{*\top}\text{logits}(\vz) = \vz^\top \mQ_{\text{dec}} \vz$ with
-  $\mQ_{\text{dec}} \in \R^{d \times d}$; its eigenvectors are latent directions.
-  The sigmoid is monotone per pixel and is excluded from the quadratic form.
-\item \textbf{Fully bilinear}: both halves bilinear. Its first version fails for a
-  reason we prove in Section~\ref{sec:symmetry}; the working version adds a linear
-  skip connection in the decoder and KL annealing.
+  $\vp^{*\top}\text{logits}(\vz) = \vz^\top \mQ_{\text{dec}} \vz$ with a
+  $d \times d$ interaction matrix whose eigenvectors are latent directions. The
+  sigmoid acts on each pixel separately and is left outside the quadratic form.
+\item \textbf{Fully bilinear.} Both halves are bilinear. The first version of this
+  model fails for a reason we prove in Section~\ref{sec:symmetry}, and the working
+  version adds a linear skip connection in the decoder.
 \end{itemize}
 
-All VAEs are trained with the standard ELBO (binary cross-entropy reconstruction,
-unit-Gaussian prior), AdamW, and light input noise, for 30 epochs with
-best-validation checkpointing; each configuration is additionally trained with five
-seeds where seed statistics are reported. Two causal protocols recur throughout.
-On the encoder side, the \emph{maximally activating input test} scales the top
-eigenvector of a class-mean direction to a realistic image norm, passes it through
-the actual encoder, and asks whether it lands nearest its own class's mean latent;
-its baseline is the same procedure on untrained networks, reported over ten seeded
-initializations because single draws proved noisy (an untrained encoder's degenerate
-class means make this baseline substantially above the naive $1/10$). On the
-decoder side, the \emph{causal generation test} decodes the top eigenvector of
-$\mQ_{\text{dec}}$ scaled to the mean latent norm, re-encodes the image, and asks
-the same question. Every number reported below is written by the corresponding
-experiment to a results file in the repository, which contains 50 extension
-experiments in total; the main text presents the informative subset.
+All VAEs are trained on the standard variational objective with AdamW and light
+input noise for 30 epochs, keeping the best validation checkpoint. Where seed
+statistics are reported, each configuration is trained with five seeds. Two causal
+tests recur throughout, one per side of the model. The \emph{maximally activating
+input test}, on the encoder side, scales the top eigenvector of a class-mean
+direction to a realistic image norm, passes it through the actual encoder, and asks
+whether it lands nearest its own class's mean latent. Its baseline repeats the
+procedure on ten untrained networks, because single untrained draws proved noisy
+and the degenerate class means of an untrained encoder push this baseline well
+above one in ten. The \emph{causal generation test}, on the decoder side, decodes
+the top eigenvector of the interaction matrix scaled to the mean latent norm,
+re-encodes the resulting image, and asks the same question. The extension comprises
+50 experiments in total. Every number reported below is written by its experiment
+to a results file, and the main text presents the informative subset.
 
 \subsection{Computational requirements}
 \label{sec:compute}
 
 All experiments ran on a shared university server with NVIDIA RTX A5500 GPUs (24~GB).
-The vision reproduction is light: the largest pieces, the 30-model sweeps behind C2,
-complete in about one GPU hour each. The language experiments dominate the
-reproduction: regenerating the eigendecompositions and activations for C6 takes
-roughly 4 GPU hours, the three C7 TinyStories runs about 5.3 GPU hours each, and the
-two TinyLlama fine-tuning arms about 8 GPU hours each. The extension's models are
-small ($\sim$1M parameters) and train in minutes; its roughly 60 training runs and
-50 analysis batteries add an estimated 15 GPU hours. The full study amounts to
+The vision reproduction is light. Its largest pieces, the 30-model sweeps behind C2,
+each complete in about one GPU hour. The language experiments dominate.
+Regenerating the eigendecompositions and activations for C6 takes roughly 4 GPU
+hours, each of the three C7 TinyStories runs about 5.3 GPU hours, and each of the
+two TinyLlama fine-tuning arms about 8 GPU hours. The extension's models are small,
+near one million parameters, and train in minutes, so its roughly 60 training runs
+and 50 analysis batteries add an estimated 15 GPU hours. The full study amounts to
 approximately 65 GPU hours, corresponding to an estimated 4.5~kgCO$_2$eq
 \citep{lacoste2019quantifying}.
 
 \section{Results: reproduction}
 \label{sec:results}
 
-Table~\ref{tab:verdicts} summarizes the outcome per claim; the subsections below give
-the evidence. Overall, C1--C5 reproduce, C6 reproduces with one repaired protocol
+Table~\ref{tab:verdicts} summarizes the outcome per claim, and the subsections below
+give the evidence. Overall, C1--C5 reproduce, C6 reproduces with one repaired protocol
 detail on our side, and C7's within-experiment comparisons reproduce while its
 absolute numbers cannot be compared to the original for reasons external to the
 method (Section~\ref{sec:deviations}).
 
 \begin{table}[t]
-\caption{Summary of reproducibility outcomes per claim.}
-\label{tab:verdicts}
 \begin{center}
 \begin{tabular}{llll}
 \toprule
@@ -372,13 +371,14 @@ C7 practicality & language & Tab.~6, Fig.~25, App.~I, J & partially reproduced$^
 \bottomrule
 \end{tabular}
 \end{center}
-\vspace{2pt}
-{\small $^{*}$absolute loss-added values (App.~G) are distorted by the unavailable
-training dataset; all structural results reproduce.
-$^{\dagger}$the small performance gap between activations reproduces; absolute losses
-are not comparable, the constant-time equalization did not manifest in our
-implementation, and fine-tuning requires a different learning rate than reported
-(Section~\ref{sec:deviations}).}
+\caption{Summary of reproducibility outcomes per claim. The asterisk marks C6, whose
+structural results all reproduce while the absolute loss-added values of the
+original Appendix~G are distorted by the unavailable training dataset. The dagger
+marks C7, where the small performance gap between activation functions reproduces
+but absolute losses are not comparable, the constant-time equalization did not
+appear in our implementation, and fine-tuning requires a different learning rate
+than reported (Section~\ref{sec:deviations}).}
+\label{tab:verdicts}
 \end{table}
 
 \subsection{C1: top eigenvectors are recognizable visual features}
@@ -387,7 +387,7 @@ We train one classifier per dataset with the original configuration and decompos
 each class's interaction matrix. Figure~\ref{fig:c1} shows the top positive
 eigenvector for classes 1--5 of MNIST and Fashion-MNIST alongside the eigenvalue
 spectrum and top eigenvectors for digit~5. The reproduced eigenfeatures match the
-original paper's closely: MNIST eigenvectors capture stroke segments specific to each
+original paper's closely. MNIST eigenvectors capture stroke segments specific to each
 digit, while Fashion-MNIST eigenvectors act as localized edge detectors, for example
 the leg gap of trousers. Because the activation of an eigenvector is quadratic,
 $\lambda (\vv^\top \vx)^2$, its sign is arbitrary, and the red and blue regions
@@ -414,13 +414,13 @@ seeds. The top positive eigenvector reaches a mean cross-seed cosine similarity
 between 0.73 and 0.88 depending on model size, declining with eigenvector rank, and
 larger models remain similar deeper into the spectrum (rank-15 similarity 0.13 for
 size 30 versus 0.48 for size 1000). Both the levels and the ordering match the
-original Figure~5A. One protocol detail differs: we exclude the diagonal when
+original Figure~5A. One protocol detail differs. We exclude the diagonal when
 averaging over seed pairs, since comparing a run with itself contributes a constant
-similarity of one; the original figure's slightly higher values are consistent with
-this difference.
+similarity of one, and the original figure's slightly higher values are consistent
+with this difference.
 
 Truncating each classifier to its top-$k$ eigenvectors per class via
-Equation~\ref{eq:eig} preserves accuracy with remarkably few components: at $k = 15$
+Equation~\ref{eq:eig} preserves accuracy with remarkably few components. At $k = 15$
 the accuracy drop ranges from 0.01\% (size 30) to 1.4\% (size 1000), and by $k = 30$
 all sizes are within noise of their full accuracy (94.8\% to 98.5\% across sizes).
 This matches the original Figure~5B and Appendix~F. Figure~\ref{fig:c2} shows both
@@ -441,18 +441,18 @@ after truncating each model to its top-$k$ eigenvectors per digit.}
 \subsection{C3: regularization controls the character of the features}
 
 Sweeping the training-time Gaussian input noise from 0 to 0.8 reproduces the
-qualitative transition of the original Figure~4: without noise the top eigenvector of
-an unregularized model concentrates on scattered outlying pixels, a visible signature
-of overfitting, and increasing noise produces progressively cleaner, more digit-like
-features at essentially unchanged test accuracy (97.2\%--98.1\% across the sweep;
-Figure~\ref{fig:c3}). The augmentation ablations of the original Appendix~B
-reproduce as well: translation splits features into copies at multiple positions,
-rotation broadens them, and blur smooths them, while none of the geometric
-augmentations alone removes the edge-pixel overfitting that input noise removes. The
-sparsity grid of the original Appendix~E confirms the quantitative half of the claim:
-$(L_1/L_2)^2$ near-sparsity of the top-5 eigenvectors is governed almost entirely by
-input noise, while the analogous statistic of the eigenvalue spectrum, the effective
-rank, is reduced by weight decay.
+qualitative transition of the original Figure~4. Without noise, the top eigenvector
+of an unregularized model concentrates on scattered outlying pixels, a visible
+signature of overfitting. Increasing noise produces progressively cleaner, more
+digit-like features at essentially unchanged test accuracy (97.2\%--98.1\% across
+the sweep; Figure~\ref{fig:c3}). The augmentation ablations of the original
+Appendix~B reproduce as well. Translation splits features into copies at multiple
+positions, rotation broadens them, and blur smooths them, while none of the
+geometric augmentations alone removes the edge-pixel overfitting that input noise
+removes. The sparsity grid of the original Appendix~E confirms the quantitative
+half of the claim. Near-sparsity of the top-5 eigenvectors, measured by
+$(L_1/L_2)^2$, is governed almost entirely by input noise, while the effective rank
+of the eigenvalue spectrum is reduced by weight decay.
 
 \begin{figure}[t]
 \begin{center}
@@ -467,7 +467,7 @@ as noise increases.}
 
 \subsection{C4: weight-derived masks causally steer the model}
 
-We reproduce the pseudoinverse-mask construction of the original Figure~7: for each
+We reproduce the pseudoinverse-mask construction of the original Figure~7. For each
 class, the rows of the pseudoinverse of its top-10 eigenvectors act as keys that
 activate specific eigenvectors, and adding a scaled key to every test image steers
 the model toward the corresponding class. Evaluated on the full test set, a mask of
@@ -480,7 +480,7 @@ exploiting the overfitting structure visible in C3, and still drops accuracy fro
 97.6\% to 23.5\% (random baseline 40.5\%).
 
 The original Appendix~M studies how mask effectiveness varies with regularization,
-and our quantitative version confirms its message: as training noise increases from 0
+and our quantitative version confirms its message. As training noise increases from 0
 to 0.3, the same attack at mask strength 0.3 recovers from 31.8\% to 74.4\% accuracy,
 with random-mask baselines between 85.9\% and 97.2\% throughout, so weight-derived
 masks remain far more effective than chance even against the most regularized model.
@@ -516,7 +516,7 @@ reported precision, $+0.62$ and $-0.66$, as expected for quantities computed fro
 the weights alone. The rank-2 approximation of the feature's activation via
 Equation~\ref{eq:eig} concentrates along the diagonal at large activations, as in
 the original Figure~8C, with an active-only correlation of 0.54 against the paper's
-0.66; unlike the eigenvalues, this statistic depends on the evaluation corpus, and
+0.66. Unlike the eigenvalues, this statistic depends on the evaluation corpus, and
 ours necessarily differs (Section~\ref{sec:deviations}). The interaction histogram
 of the original Appendix~N reproduces as well, and the top-activating text examples
 for all thirteen circuit features (original Appendix~O) match the published feature
@@ -541,25 +541,25 @@ eigenvectors.}
 Figure~\ref{fig:c6} reproduces Figure~9 of the original across the three
 transformers. For fw-medium, the mean correlation between an SAE feature's activation
 and its truncated eigendecomposition rises from 0.51 with one eigenvector to 0.83
-with 64; 74\% of features exceed a correlation of 0.75 with only the top two
-eigenvectors, matching the original's statement that most features do. Scatter plots
+with 64. With only the top two eigenvectors, 74\% of features exceed a correlation
+of 0.75, matching the original's statement that most features do. Scatter plots
 of nine randomly sampled features show the activation concentrating on the diagonal
 (correlations 0.75--0.96 for eight of nine), with one densely activating feature
 poorly approximated, mirroring the heterogeneity visible in the original Figure~9C.
-One ordering detail differs: in our run fw-small attains slightly higher correlations
-than fw-medium, whereas the original reports the reverse; both lie in the reported
-range.
+One ordering detail differs. In our run fw-small attains slightly higher
+correlations than fw-medium, the reverse of the original, with both inside the
+reported range.
 
 The training-time effect of the original Appendix~H reproduces closely with the five
-released SAE snapshots of doubling training duration: our mean correlations are
+released SAE snapshots of doubling training duration. Our mean correlations are
 0.19, 0.30, 0.47, 0.57 and 0.62 against the paper's Table-5 values of
 0.17, 0.28, 0.42, 0.52 and 0.59, and the correlation histogram shifts from a bimodal
 shape with most mass near zero to a single mode near 0.85, as in the original
 Figure~24. Finally, the SAE quality curve of the original Appendix~G (loss added when
 splicing each SAE's reconstruction into the forward pass) reproduces in its ordering,
 with resid-mid costing more than mlp-out at every layer, but its absolute values are
-distorted by an evaluation-data mismatch discussed in Section~\ref{sec:deviations};
-we therefore additionally report per-layer reconstruction error, which rises
+distorted by an evaluation-data mismatch discussed in Section~\ref{sec:deviations}.
+We therefore additionally report per-layer reconstruction error, which rises
 monotonically with depth for both hook points, consistent with the original figure.
 
 \begin{figure}[t]
@@ -583,41 +583,34 @@ the MLP activation, and derive both rows of the original Table~6 from one set of
 runs: the constant-epochs comparison from the final validation loss, and the
 constant-time comparison from timestamped periodic validation evaluated at the
 wall-clock time when the fastest variant finished. Table~\ref{tab:c7} reports the
-result. The core of the claim reproduces: after five epochs the bilinear model
+result. The core of the claim reproduces. After five epochs the bilinear model
 trails SwiGLU by only 0.006 nats (1.237 against 1.231), the same order as the
-paper's 0.016 gap, and is indistinguishable from ReGLU; at constant time the
+paper's 0.016 gap, and is indistinguishable from ReGLU. At constant time the
 bilinear model sits between the two gated variants, 0.005 nats behind SwiGLU. The
-full constant-time equalization of the original Table~6 did not manifest, for a
-mechanical reason: in our implementation the three variants run at nearly identical
-wall-clock speed (the gate is a negligible element-wise operation), so constant
+full constant-time equalization of the original Table~6 did not appear here, for a
+mechanical reason. In our implementation the three variants run at nearly identical
+wall-clock speed, since the gate is a negligible element-wise operation, so constant
 time buys the slower variants almost no extra steps. The original's own footnote
 anticipates this, noting that the constant-time result depends on implementation
 efficiency. Because our runs use the public TinyStories corpus rather than the
 authors' unavailable cleaned version, absolute losses are not comparable to the
-original; the claim concerns the differences between activation functions, which we
+original. The claim concerns the differences between activation functions, which we
 measure under identical conditions.
 
 For the fine-tuning half of the claim we anneal TinyLlama-1.1B's gate away over the
 first 30\% of a 100{,}000-step run on roughly 400M FineWeb tokens
 (Figure~\ref{fig:c7}). The loss trajectory reproduces the shape of the original
-Figure~25: the fine-tuned arm tracks the continued-training baseline during early
+Figure~25. The fine-tuned arm tracks the continued-training baseline during early
 annealing, rises to a gap of about 0.2 nats as $\beta$ approaches zero, and recovers
-steadily under continued training, ending 0.14 nats above the baseline (2.49 against
-2.35) after 400M tokens, against the paper's residual gap of 0.05. Two factors
-plausibly account for the larger residual: our stability-driven lower learning rate
+steadily under continued training. After 400M tokens it ends 0.14 nats above the
+baseline (2.49 against 2.35), against the paper's residual gap of 0.05. Two factors
+plausibly account for the larger residual. Our lower, stability-driven learning rate
 slows recovery, and our compute budget matches the paper's token count, which its
 authors already describe as insufficient for full convergence. The qualitative
 conclusion, that a pretrained gated transformer can be converted to a bilinear one at
 a modest and shrinking penalty, stands.
 
 \begin{table}[t]
-\caption{Validation loss of TinyStories transformers with different MLP activations
-(our runs, public TinyStories corpus; paper values in parentheses for reference,
-measured on the authors' unavailable cleaned corpus). The constant-epochs row
-reports the final loss on the full validation set; the constant-time row evaluates
-each variant on a fixed 1024-sequence validation subset at the wall-clock time when
-the fastest variant finished.}
-\label{tab:c7}
 \begin{center}
 \begin{tabular}{lccc}
 \toprule
@@ -628,6 +621,13 @@ constant time   & 1.228 (1.337) & 1.231 (1.337) & 1.223 (1.336) \\
 \bottomrule
 \end{tabular}
 \end{center}
+\caption{Validation loss of TinyStories transformers with different MLP activations
+(our runs, public TinyStories corpus; paper values in parentheses for reference,
+measured on the authors' unavailable cleaned corpus). The constant-epochs row
+reports the final loss on the full validation set. The constant-time row evaluates
+each variant on a fixed 1024-sequence validation subset at the wall-clock time when
+the fastest variant finished.}
+\label{tab:c7}
 \end{table}
 
 \begin{figure}[t]
@@ -648,28 +648,27 @@ This section reports the extension outlined in Section~\ref{sec:extmethod}. We
 present the encoder study first (Section~\ref{sec:enc}), then the decoder study that
 forms the core of the extension (Sections~\ref{sec:dec}--\ref{sec:rank}), a symmetry
 result for purely bilinear decoders (Section~\ref{sec:symmetry}), the comparison
-against gradient-based and PCA baselines that delimits what bilinearity buys
-(Section~\ref{sec:baselines}), and a controlled null result on encoder--decoder
-alignment (Section~\ref{sec:alignment}). Section~\ref{sec:extlimits} collects the
-limitations.
+against gradient-based and PCA baselines (Section~\ref{sec:baselines}), and a
+controlled null result on encoder--decoder alignment (Section~\ref{sec:alignment}).
+Section~\ref{sec:extlimits} collects the limitations.
 
 \subsection{The encoder: weight-based features transfer and are causal}
 \label{sec:enc}
 
 Applying Equation~\ref{eq:eig} to the bilinear encoder with class-mean latent
 directions yields pixel-space eigenvectors that behave like their classifier
-counterparts in every qualitative respect: they are visually structured, stable
+counterparts in every qualitative respect. They are visually structured, stable
 across training runs (rank-1 cross-seed cosine $0.81 \pm 0.06$, inside the
 0.80--0.90 range the original reports for classifiers), and organized around visual
 similarity. The 10-by-10 matrix of cosine similarities between top eigenvectors
-reproduces human confusability with no label ever seen during training: the
-(4,\,9) pair reaches 0.81, (0,\,6) 0.61, (1,\,7) 0.57, while the visually dissimilar
-(3,\,8) pair stays at 0.21. One quantitative property does change: whereas the
-original's classifiers are captured by roughly three eigenvectors per class,
-matching the true encoder activation to correlation $r > 0.9$ here requires rank 8
-to 13, and up to 20 for the most complex digit. An encoder trained to represent a
-full data distribution stores more directions per concept than one trained to make
-a single decision, a point we return to in Section~\ref{sec:rank}.
+reproduces human confusability with no label ever seen during training. The
+(4,\,9) pair reaches 0.81, (0,\,6) reaches 0.61, and (1,\,7) reaches 0.57, while
+the visually dissimilar (3,\,8) pair stays at 0.21. One quantitative property does
+change. Whereas roughly three eigenvectors per class capture the original's
+classifiers, matching the true encoder activation to correlation $r > 0.9$ here
+requires rank 8 to 13, and up to 20 for the most complex digit. An encoder trained
+to represent a full data distribution stores more directions per concept than one
+trained to make a single decision, a point we return to in Section~\ref{sec:rank}.
 
 The central encoder result is causal. In the maximally activating input test
 (Figure~\ref{fig:extmaxact}), the synthetic image built from a class's top
@@ -677,35 +676,36 @@ eigenvector, with no data and no gradients, is correctly recognized by the encod
 for \textbf{9 of 10} MNIST classes, \textbf{10 of 10} on Fashion-MNIST, and
 \textbf{9 of 10} on KMNIST. The corresponding random-initialization baselines,
 measured over ten seeded untrained networks, are $4.4 \pm 1.6$, $3.5 \pm 1.9$, and
-$3.5 \pm 1.6$; the trained scores exceed every individual baseline draw. The single
+$3.5 \pm 1.6$. The trained scores exceed every individual baseline draw. The single
 MNIST failure (digit 8 encodes nearest to 1) and the single KMNIST failure both fall
 on the class each dataset's own similarity matrix marks as most entangled. A second,
 independent causal probe adapts the original paper's pseudoinverse masks to the
-encoder: adding a weight-derived key of scale $\sigma = 1$ to arbitrary test images
+encoder. Adding a weight-derived key of scale $\sigma = 1$ to arbitrary test images
 steers their encodings into a chosen target class 67.7\% of the time, against 3.5\%
-for permuted masks, rising to 94.8\% at $\sigma = 4$ (Figure~\ref{fig:extmaxact},
-right). The pseudoinverse construction matters: simply adding the scaled eigenvector
-itself steers \emph{below} chance, reproducing on the encoder the same effect that
-motivated pseudoinverse keys in the original work.
+for permuted masks, and the rate rises to 94.8\% at $\sigma = 4$
+(Figure~\ref{fig:extmaxact}, right). The pseudoinverse construction matters, because
+simply adding the scaled eigenvector itself steers \emph{below} chance, reproducing
+on the encoder the same effect that motivated pseudoinverse keys in the original
+work.
 
 \begin{figure}[t]
 \begin{center}
-\includegraphics[width=0.66\linewidth]{figures/ext_maxact.png}
-\includegraphics[width=0.33\linewidth]{figures/ext_steering.png}
+\includegraphics[width=0.67\linewidth]{figures/ext_maxact.png}
+\includegraphics[width=0.307\linewidth]{figures/ext_steering.png}
 \end{center}
-\caption{Encoder causality. Left: maximally activating input test on MNIST; the top
-row shows the weight-derived synthetic input per class and whether the encoder
-recognizes it (trained model, 9/10), the bottom row the same for one untrained
-control. Right: steering rate toward a chosen target class when a pseudoinverse
-mask of scale $\sigma$ is added to arbitrary test images, against permuted-mask
-controls.}
+\caption{Encoder causality. Left: maximally activating input test on MNIST; the
+upper block shows the weight-derived synthetic input per class and whether the
+encoder recognizes it (trained model, 9/10), the lower block the same for one
+untrained control (6/10). Right: steering rate toward a chosen target class when a
+pseudoinverse mask of scale $\sigma$ is added to arbitrary test images, against
+permuted-mask controls.}
 \label{fig:extmaxact}
 \end{figure}
 
 \subsection{The decoder: a failure with a mechanism, and its correction}
 \label{sec:dec}
 
-The decoder invites the mirrored analysis: choose a pixel-space target
+The decoder invites the mirrored analysis. Choose a pixel-space target
 $\vp^*$, eigendecompose $\mQ_{\text{dec}}$, and decode the top eigenvector to see
 what the weights generate for that target. The natural choice of target,
 the class-mean image, fails badly. The top eigenvectors of all ten classes are
@@ -719,8 +719,8 @@ initialization (cosine 0.646 on MNIST) and is amplified by training, so it is
 neither purely learned nor purely architectural.
 
 The mechanism is elementary once seen. $\mQ$ is linear in the probe
-(Section~\ref{sec:models}), and the ten class-mean images overlap heavily: their
-mean pairwise cosine is 0.742 on MNIST, 0.771 on Fashion-MNIST, and 0.821 on
+(Section~\ref{sec:models}), and the ten class-mean images overlap heavily, with
+mean pairwise cosines of 0.742 on MNIST, 0.771 on Fashion-MNIST, and 0.821 on
 KMNIST, because all classes share the central mass of ink. Overlapping probes
 therefore produce overlapping interaction matrices, and the ``universal generative
 direction'' is largely a property of the questions asked, not of the decoder.
@@ -730,13 +730,14 @@ ink is common, which is exactly the class-agnostic blob the synthesis produces.
 The correction is to center the targets, $\vp^*_c - \bar{\vp}$ with $\bar{\vp}$ the
 mean of the class means, asking what distinguishes class $c$ from the average image.
 Everything changes (Table~\ref{tab:centering} and the bottom row of
-Figure~\ref{fig:extsynth}): the cross-class eigenvector similarity drops to
+Figure~\ref{fig:extsynth}). The cross-class eigenvector similarity drops to
 0.40--0.46 against untrained-network baselines of 0.27--0.30, causal generation
-rises to \textbf{9/10} (MNIST), \textbf{6/10} (Fashion-MNIST) and \textbf{7/10}
-(KMNIST), the synthesis penalty falls to 2.5--5.1$\times$, and the decoded
-eigenvectors are recognizable, class-specific images. On the fully bilinear model,
-where seed statistics are available across six checkpoints, centering lifts causal
-generation from $4.7 \pm 0.7$ to $\mathbf{9.5 \pm 0.5}$ of 10.
+rises to \textbf{9/10} on MNIST, \textbf{6/10} on Fashion-MNIST and \textbf{7/10}
+on KMNIST, the synthesis penalty falls to between 2.5 and 5.1 times the
+reconstruction error, and the decoded eigenvectors are recognizable, class-specific
+images. On the fully bilinear model, where seed statistics are available across six
+checkpoints, centering lifts causal generation from $4.7 \pm 0.7$ to
+$\mathbf{9.5 \pm 0.5}$ of 10.
 
 \begin{figure}[t]
 \begin{center}
@@ -751,12 +752,6 @@ of the causal generation test (3/10 raw, 9/10 centered).}
 \end{figure}
 
 \begin{table}[t]
-\caption{The centering correction across datasets (decoder-bilinear VAE; untrained
-baselines in parentheses). Target overlap is the mean pairwise cosine of the probe
-directions themselves; the eigenvector row is the mean pairwise cosine of the
-resulting top eigenvectors; the penalty row is synthesis MSE relative to the same
-model's reconstruction MSE.}
-\label{tab:centering}
 \begin{center}
 \begin{tabular}{lcccccc}
 \toprule
@@ -770,37 +765,43 @@ MSE penalty vs.\ recon.\ & 5.8$\times$ & 2.6$\times$ & 19.3$\times$ & 5.1$\times
 \bottomrule
 \end{tabular}
 \end{center}
+\caption{The centering correction across datasets (decoder-bilinear VAE; untrained
+baselines in parentheses). Target overlap is the mean pairwise cosine of the probe
+directions themselves. The eigenvector row is the mean pairwise cosine of the
+resulting top eigenvectors, and the penalty row is synthesis MSE relative to the
+same model's reconstruction MSE.}
+\label{tab:centering}
 \end{table}
 
-Centering is not merely a trick that happens to work; it is the canonical
-correction. Because $\mQ$ is linear in the probe,
+Centering is not a trick that happens to work. It is the canonical correction,
+because $\mQ$ is linear in the probe and therefore
 \begin{equation}
   \mQ(\vp - \bar{\vp}) \;=\; \mQ(\vp) - \mQ(\bar{\vp}),
 \end{equation}
-verified numerically to $9 \times 10^{-5}$: centering subtracts the \emph{entire}
-shared interaction matrix, not an approximation of it. We tested three alternatives
-under identical conditions. Pairwise-contrast targets ($\vp^*_c$ minus the nearest
-confusable class mean) reach 7/10 with slightly lower eigenvector overlap but worse
-synthesis error. Deflation, which removes the top eigenvector of the shared matrix
-$\mQ(\bar{\vp})$ rather than the whole matrix, makes things \emph{worse} than raw
-targets (cross-class overlap 0.890, causal 3/10), because $\mQ(\bar{\vp})$ is far
-from rank one: its leading component carries only 39\% of its spectral mass, and a
-deflation-depth sweep degrades monotonically. A generalized eigenproblem against a
-positive-definite surrogate of the shared matrix reaches only 4/10. Finally,
-one-vs-rest contrast targets are algebraically identical to centered targets up to
-the scalar $10/9$, so that family collapses to centering. The lesson generalizes
-beyond VAEs: any application of weight-based eigendecomposition on the output side
-of a bilinear network, wherever natural probe directions overlap, should center its
-probes.
+which we verify numerically to $9 \times 10^{-5}$. Centering subtracts the
+\emph{entire} shared interaction matrix rather than an approximation of it. We
+tested three alternatives under identical conditions. Pairwise-contrast targets
+($\vp^*_c$ minus the nearest confusable class mean) reach 7/10 with slightly lower
+eigenvector overlap but worse synthesis error. Deflation, which removes the top
+eigenvector of the shared matrix $\mQ(\bar{\vp})$ rather than the whole matrix,
+makes things \emph{worse} than raw targets (cross-class overlap 0.890, causal
+3/10), because $\mQ(\bar{\vp})$ is far from rank one. Its leading component carries
+only 39\% of its spectral mass, and removing more components only degrades further.
+A generalized eigenproblem against a positive-definite surrogate of the shared
+matrix reaches only 4/10. Finally, one-vs-rest contrast targets are algebraically
+identical to centered targets up to the scalar $10/9$, so that family collapses to
+centering. The lesson extends beyond VAEs. Wherever weight-based eigendecomposition
+is applied on the output side of a bilinear network and the natural probe
+directions overlap, the probes should be centered.
 
 \subsection{The corrected structure is rank one, robustly}
 \label{sec:rank}
 
 How much of the decoder's generative behavior does the top eigenvector carry?
-Truncation experiments answer: essentially all of it. Reconstructing a class from
-the top $k$ eigenvectors of its centered interaction matrix, the single top
-eigenvector already attains the full centered result (synthesis MSE
-$0.028 \pm 0.005$ across six checkpoints; causal $9.5 \pm 0.5$), the curves are flat
+Truncation experiments give a clear answer: essentially all of it. Reconstructing a
+class from the top $k$ eigenvectors of its centered interaction matrix, the single
+top eigenvector already attains the full centered result (synthesis error
+$0.028 \pm 0.005$ across six checkpoints, causal $9.5 \pm 0.5$), the curves are flat
 in $k$ beyond one, and under a magnitude ordering additional eigenvectors actively
 hurt. Together with the encoder's rank of 8--13 (Section~\ref{sec:enc}) this yields
 a clean asymmetry we did not anticipate: in these models, \emph{recognition is
@@ -812,19 +813,15 @@ not a replacement for the decoder.
 Because the latent dimension in these experiments (10) coincides with the number of
 classes, we tested whether the rank-one structure and the centering correction are
 artifacts of a cramped latent space, retraining the decoder-bilinear model at
-$d \in \{10, 20, 32\}$ with three seeds each (Table~\ref{tab:sweep}). They are not:
-centered causal generation reaches an exact $9.0 \pm 0.0$ at both $d = 20$ and
+$d \in \{10, 20, 32\}$ with three seeds each (Table~\ref{tab:sweep}). They are not.
+Centered causal generation reaches an exact $9.0 \pm 0.0$ at both $d = 20$ and
 $d = 32$, the single top eigenvector remains optimal even with sixteen positive
-eigenvalues available, the leading eigenvalue's share of the positive spectral mass
-is nearly constant (0.69) across dimensions, and since the untrained baseline falls
-with dimension while the centered overlap does not, the learned class structure
-becomes more distinguishable from chance as the latent space widens.
+eigenvalues available, and the leading eigenvalue's share of the positive spectral
+mass stays near 0.69 at every dimension. Since the untrained baseline falls with
+dimension while the centered overlap does not, the learned class structure becomes
+easier to distinguish from chance as the latent space widens.
 
 \begin{table}[t]
-\caption{Latent-dimension sweep (decoder-bilinear VAE on MNIST, three seeds per
-dimension, mean $\pm$ std). The rank-one and centering results are not artifacts of
-$d = 10$.}
-\label{tab:sweep}
 \begin{center}
 \begin{tabular}{ccccc}
 \toprule
@@ -836,13 +833,17 @@ $d$ & causal raw & causal centered & eigvec overlap raw $\to$ centered (random) 
 \bottomrule
 \end{tabular}
 \end{center}
+\caption{Latent-dimension sweep (decoder-bilinear VAE on MNIST, three seeds per
+dimension, mean $\pm$ std). The rank-one and centering results are not artifacts of
+$d = 10$.}
+\label{tab:sweep}
 \end{table}
 
 The KMNIST results add one instructive boundary. Its three centered failures all
 fall within a cluster of Hiragana characters that share stroke radicals and remain
-0.7--0.98 similar even after centering: contrastive probes separate classes only up
-to genuinely shared visual components. Where classes truly overlap, no choice of
-target direction can pull their generative directions apart.
+0.7--0.98 similar even after centering. Contrastive probes separate classes only up
+to the visual components they genuinely share. Where classes truly overlap, no
+choice of target direction can pull their generative directions apart.
 
 \subsection{A symmetry pathology of purely bilinear decoders}
 \label{sec:symmetry}
@@ -857,17 +858,17 @@ element-wise output function, satisfies $\mathrm{decode}(\vz) =
 \end{proposition}
 
 Every hidden unit of the bilinear layer is a product of two linear functionals of
-$\vz$, hence an even function; bias-free linear maps preserve evenness, and an
+$\vz$, hence an even function. Bias-free linear maps preserve evenness, and an
 element-wise output function applied to an even pre-activation remains even. We
 verified the identity numerically to exactly zero. The consequence is that the
 latent space collapses onto a quotient in which $\vz$ and $-\vz$ are
-indistinguishable, halving the usable code space; the same identity holds for the
-decoder-bilinear model of Section~\ref{sec:dec}, where the flexible MLP encoder
-learns around it, but a bilinear encoder cannot. A single linear skip connection
-from $\vz$ to the decoder output breaks the symmetry and recovers normal training
-(MSE 0.028); this repaired version is the fully bilinear model used everywhere
-above. Figure~\ref{fig:extsym} shows the identity and the fix side by side. The
-practical rule is short: purely bilinear decoders need a linear term.
+indistinguishable, halving the usable code space. The same identity holds for the
+decoder-bilinear model of Section~\ref{sec:dec}, whose flexible MLP encoder learns
+around it, but a bilinear encoder cannot. A single linear skip connection from
+$\vz$ to the decoder output breaks the symmetry and recovers normal training (MSE
+0.028). This repaired version is the fully bilinear model used everywhere above,
+and Figure~\ref{fig:extsym} shows the identity and the fix side by side. The
+practical rule is short. Purely bilinear decoders need a linear term.
 
 \begin{figure}[t]
 \begin{center}
@@ -883,32 +884,27 @@ pixel-identical, and v1's reconstructions are visibly degraded.}
 \subsection{What does bilinearity buy? Gradient and PCA baselines}
 \label{sec:baselines}
 
-A fair skeptic asks whether the results of Section~\ref{sec:dec} need a bilinear
-decoder at all, since gradient machinery can search for latent directions on any
-decoder. We ran the comparison under identical conditions (centered targets, the
-same norm budget, the same causal test) on an ordinary MLP-decoder VAE: gradient
-ascent on the target objective (Adam, 300 steps, 8 restarts) and, as a cheap
-variant, the single-backward-pass Jacobian direction $\mJ^\top \vp^*$ at $\vz = 0$.
-Table~\ref{tab:jacobian} shows the outcome. Gradient methods match and slightly
-exceed the weight-based protocol: both reach 10/10 causal generation on all four
-vanilla-VAE training seeds, with synthesis error as good or better, and gradient
-ascent applied to the bilinear decoder itself also reaches 10/10. The bilinear
-constraint therefore buys no raw synthesis capability. What it buys is the form of
-the answer: the eigendecomposition is computed once from the weights with no data
-and no gradients, is exact over the entire latent space rather than a local optimum
-or a linearization at one point, and returns the complete spectrum of generative
-and suppressive directions with their strengths in a single object. The
-one-step Jacobian makes the contrast concrete: on the bias-free bilinear decoder it
-is structurally degenerate, since $\mJ^\top \vp^* \equiv 0$ at $\vz = 0$ (a
-quadratic has no linear term at the origin), while the weight-based
+A natural objection is that gradient machinery can search for latent directions on
+any decoder, so perhaps the results of Section~\ref{sec:dec} do not need a bilinear
+decoder at all. We ran the comparison under identical conditions on an ordinary
+MLP-decoder VAE, using the same centered targets, norm budget and causal test. The
+baselines are gradient ascent on the target objective (Adam, 300 steps, 8 restarts)
+and, as a cheap variant, the single-backward-pass Jacobian direction
+$\mJ^\top \vp^*$ at $\vz = 0$. Table~\ref{tab:jacobian} shows the outcome. Gradient
+methods match and slightly exceed the weight-based protocol. Both reach 10/10
+causal generation on all four vanilla-VAE training seeds with synthesis error as
+good or better, and gradient ascent applied to the bilinear decoder itself also
+reaches 10/10. The bilinear constraint therefore buys no raw synthesis capability.
+What it buys is the form of the answer. The eigendecomposition is computed once
+from the weights, without data or gradients. It is exact over the entire latent
+space rather than at a local optimum or a linearization point, and it returns the
+complete spectrum of generative and suppressive directions with their strengths in
+a single object. The one-step Jacobian makes the contrast concrete. On the
+bias-free bilinear decoder it is degenerate, since a quadratic has no linear term
+at the origin and $\mJ^\top \vp^* \equiv 0$ at $\vz = 0$, while the weight-based
 eigendecomposition is exactly the second-order object that takes its place.
 
 \begin{table}[t]
-\caption{Weight-based analysis versus gradient baselines on MNIST, identical
-protocol (centered targets, per-model norm budget). Vanilla-VAE rows report the
-range over the main checkpoint and three training seeds. Reconstruction anchors:
-bilinear VAE 0.016, vanilla VAE 0.012.}
-\label{tab:jacobian}
 \begin{center}
 \small
 \begin{tabular}{lcccc}
@@ -924,6 +920,11 @@ Untrained controls (all procedures) & 1/10 & 0.179 & --- & --- \\
 \bottomrule
 \end{tabular}
 \end{center}
+\caption{Weight-based analysis versus gradient baselines on MNIST, identical
+protocol (centered targets, per-model norm budget). Vanilla-VAE rows report the
+range over the main checkpoint and three training seeds. Reconstruction anchors:
+bilinear VAE 0.016, vanilla VAE 0.012.}
+\label{tab:jacobian}
 \end{table}
 
 A second baseline tests whether the weight-based directions are simply the
@@ -934,7 +935,7 @@ the top one and top three PCA directions of the posterior match the centered
 eigenvectors no better than chance at any sample size from 10 to 5000 (for example
 0.22 against a floor of $0.26 \pm 0.09$ for the top direction), and only the
 complete 10-direction basis edges marginally above its floor (0.70 against
-$0.61 \pm 0.04$). PCA captures the directions along which the data varies; the
+$0.61 \pm 0.04$). PCA captures the directions along which the data varies. The
 interaction matrix captures the directions with which the decoder writes a chosen
 pattern. The two are complementary, and no amount of sampling makes one reproduce
 the other.
@@ -946,26 +947,26 @@ In the fully bilinear model it is natural to hypothesize that the two analyses m
 in the middle: that the latent direction the encoder uses to represent a class
 aligns with the latent direction the decoder uses to generate it. It does not. The
 measured cosine between the two, averaged over classes, is $0.026 \pm 0.129$ across
-six trained models, against an empirical random baseline of $0.258 \pm 0.056$;
-per-class values swing between $-0.74$ and $+0.52$ and flip sign across seeds.
+six trained models, against an empirical random baseline of $0.258 \pm 0.056$.
+Per-class values swing between $-0.74$ and $+0.52$ and flip sign across seeds.
 
 We pushed the hypothesis as far as it can go by training the model \emph{for}
-alignment: an auxiliary loss that maximizes the cosine between the encoder Jacobian
-$\partial \vmu_k / \partial \vx$ and the decoder Jacobian
+alignment, adding an auxiliary loss that maximizes the cosine between the encoder
+Jacobian $\partial \vmu_k / \partial \vx$ and the decoder Jacobian
 $\partial \, \mathrm{decode}(\vz) / \partial z_k$. Two findings resulted
 (Figure~\ref{fig:extalign}). First, the initial implementation of this loss
 computed both Jacobians outside the computation graph and therefore contributed
-zero gradient; the checkpoint trained with it is indistinguishable from an
+zero gradient. The checkpoint trained with it is indistinguishable from an
 unregularized one. We mention this because silently detached auxiliary losses are
 an easy failure mode to miss, and because it means the loss had never actually been
 tested. Second, after repairing the loss and training fresh seeds at two strengths,
 the strong setting demonstrably optimizes its own objective, raising the mean
 Jacobian cosine from 0.376 to 0.465, and the eigenvector alignment metric still
-does not move: $-0.061 \pm 0.116$, inside the random band. The same null holds on
-Fashion-MNIST once seed spread is accounted for (six checkpoints average
-$0.045 \pm 0.233$; a single checkpoint had suggested otherwise). Encoder and
-decoder eigenstructures are genuinely independent objects in these models, and a
-training signal that aligns local Jacobians does not align them.
+does not move. It stays at $-0.061 \pm 0.116$, inside the random band. The same
+null holds on Fashion-MNIST once seed spread is accounted for (six checkpoints
+average $0.045 \pm 0.233$, where a single checkpoint had suggested otherwise).
+Encoder and decoder eigenstructures are genuinely independent objects in these
+models, and a training signal that aligns local Jacobians does not align them.
 
 \begin{figure}[t]
 \begin{center}
@@ -984,21 +985,21 @@ and the left panel shows this still does not produce eigenvector alignment.}
 \label{sec:extlimits}
 
 Four boundaries should be stated plainly. First, weight-based synthesis never
-matches actual decoding: even after centering, its error is 2.5 to 5 times the
+matches actual decoding. Even after centering, its error is 2.5 to 5 times the
 model's reconstruction error, consistent with the rank-one reading of
 Section~\ref{sec:rank}. Second, bilinear VAEs are not more disentangled than
-ordinary ones; on a mutual-information-gap proxy every bilinear variant scores
+ordinary ones. On a mutual-information-gap proxy every bilinear variant scores
 below the vanilla baseline (0.06--0.10 against 0.13). The one latent-quality metric
-where a bilinear variant wins is class structure: the decoder-bilinear model
-attains the best linear-probe accuracy (0.908 against the vanilla 0.890) and
-silhouette score of the four architectures. Third, the eigenvector \emph{basis} on
-the decoder side is seed-stable only at its top: pixel-space syntheses agree across
-seeds at cosine 0.99, but the underlying latent eigenvectors beyond the first agree
-only at about 0.2, so claims should attach to the top direction, not the basis.
-Fourth, everything here is at the scale of $28 \times 28$ grayscale images and
-latent dimensions up to 32; a convolutional variant on CIFAR-10 trained but
-produced a latent space with near-zero class structure (linear probe 0.36), so we
-make no claim beyond the small-image regime.
+where a bilinear variant wins is class structure, where the decoder-bilinear model
+attains the best linear-probe accuracy (0.908 against the vanilla 0.890) and the
+best silhouette score of the four architectures. Third, the eigenvector
+\emph{basis} on the decoder side is seed-stable only at its top. Pixel-space
+syntheses agree across seeds at cosine 0.99, but the latent eigenvectors beyond the
+first agree only at about 0.2, so claims should attach to the top direction rather
+than to the basis. Fourth, everything here is at the scale of $28 \times 28$
+grayscale images and latent dimensions up to 32. A convolutional variant on
+CIFAR-10 trained but produced a latent space with near-zero class structure (linear
+probe 0.36), so we make no claim beyond the small-image regime.
 
 \section{Discussion}
 \label{sec:discussion}
@@ -1016,41 +1017,42 @@ checkpoints and dictionaries.
 
 \subsection{What the extension establishes}
 
-The extension's findings compress into five statements. Weight-based features
-survive the loss of labels and are causal on the encoder side, at 9--10 of 10
-across three datasets against properly measured baselines. On the output side the
-method fails by default and the failure is a lesson with reach beyond VAEs: the
+The extension's findings reduce to five statements. Weight-based features survive
+the loss of labels and are causal on the encoder side, at 9 to 10 of 10 across
+three datasets against properly measured baselines. On the output side the method
+fails by default, and the failure carries a lesson with reach beyond VAEs. The
 interaction matrix is linear in the probe, so overlapping probes, which are the
-natural choice almost everywhere, manufacture spurious shared structure, and
-centering the probes is the exact correction. The corrected picture is a clean
-asymmetry, high-rank recognition against rank-one generation, that is stable
-across latent dimensions and datasets. Purely bilinear decoders carry an exact
-sign symmetry that must be broken by a linear term. And two disciplined negatives
-delimit the method honestly: gradient baselines match its raw capability, locating
-its value in closed-form, data-free, globally valid structure rather than
-synthesis power, and the tempting hypothesis that encoder and decoder
-eigenstructures align is false even under direct optimization pressure.
+natural choice almost everywhere, create spurious shared structure, and centering
+the probes is the exact correction. The corrected picture is a clean asymmetry,
+high-rank recognition against rank-one generation, that is stable across latent
+dimensions and datasets. Purely bilinear decoders carry an exact sign symmetry
+that must be broken by a linear term. Finally, two disciplined negative results
+mark the method's boundaries honestly. Gradient baselines match its raw
+capability, which locates its value in closed-form, data-free, globally valid
+structure rather than in synthesis power, and the tempting hypothesis that encoder
+and decoder eigenstructures align is false even under direct optimization
+pressure.
 
 \subsection{Deviations and their causes}
 \label{sec:deviations}
 
-We record four deviations in the reproduction, each traced to its cause.
+We record three deviations in the reproduction, each traced to its cause.
 
 \paragraph{The cleaned TinyStories dataset is unavailable.} The published
 TinyStories checkpoint reaches a per-token loss of about 2.9 on the public
 TinyStories validation set, against the 1.34 the paper reports on the authors'
 cleaned corpus. We ruled out our evaluation pipeline as the cause by testing
 tokenization and punctuation normalization, story packing and padding conventions,
-attention masking, and rotary embedding variants; none moves the number
+attention masking, and rotary embedding variants. None moves the number
 appreciably, and the same evaluation applied to our own from-scratch models
 produces losses in the expected range (Table~\ref{tab:c7}). The gap therefore
 reflects a genuinely different training distribution that can no longer be
-obtained, since the research repository that produced it is no longer public. Most
-results are unaffected, but one is: the loss-added metric of the original
-Appendix~G evaluates the model slightly off its training distribution, where an SAE
-reconstruction can act as a denoiser, compressing and occasionally inverting the
-metric's absolute values. The ordering between hook points survives; the absolute
-curve does not.
+obtained, since neither the cleaned corpus nor the code that produced it was ever
+released. Most results are unaffected, but one is. The loss-added metric of the
+original Appendix~G evaluates the model slightly off its training distribution,
+where an SAE reconstruction can act as a denoiser that compresses and occasionally
+inverts the metric's absolute values. The ordering between hook points survives,
+but the absolute curve does not.
 
 \paragraph{Fine-tuning diverges at the reported learning rate.} The original
 Appendix~J describes fine-tuning TinyLlama with the FineWeb configuration of the
@@ -1060,46 +1062,40 @@ arm and the continued-training baseline diverge immediately after warmup at that
 rate, from loss 2.7 to above 7. At $3 \times 10^{-5}$ both arms train stably. We
 report results at the stable rate and flag the discrepancy.
 
-\paragraph{Protocol details.} Two smaller items: our cross-seed similarity curves
-(C2) exclude self-pairs from the average, which lowers the curves slightly relative
-to including them; and in C6 the ordering of fw-small and fw-medium is swapped
-relative to the original, within the reported range.
-
-\paragraph{Software drift.} The vendored library predates breaking changes in its
-dependencies: current \texttt{transformers} drops non-registered buffers when
-loading the released checkpoints, requiring the attention mask and rotary caches to
-be rebuilt after loading, and current PyTorch rejects the training-path attention
-call, which passes an explicit mask together with \texttt{is\_causal}. Our scripts
-carry small, documented shims for both. Neither affects results; both would stop a
-naive rerun.
+\paragraph{Protocol details.} Two smaller items remain. Our cross-seed similarity
+curves in C2 exclude self-pairs from the average, which lowers the curves slightly,
+and in C6 the ordering of fw-small and fw-medium is swapped relative to the
+original, within the reported range.
 
 \subsection{What was easy and what was difficult}
 
-The vision experiments were straightforward: the library's decomposition code is
-clean, models train in minutes, and the paper describes the setups precisely enough
-to re-implement every figure. The language experiments were harder for reasons that
-have little to do with the method. The missing research repository meant all
-experiment code had to be reconstructed from prose; the missing cleaned dataset put
-absolute loss comparisons permanently out of reach; and locating the correct public
-artifacts required some detective work, for instance the paper's ``ts-tiny'' model
-being published under the name \texttt{ts-medium}. In the extension, the recurring
-difficulty was of a different kind: almost every headline number changed once its
-baseline was measured properly. Single-draw random baselines understated encoder
-causal baselines by half, a PCA comparison looked meaningful until a chance floor
-was computed, a correlation between spectral mass and reconstruction error
-dissolved under rank statistics and leave-one-out checks, and an auxiliary loss
-turned out to be silently detached from the gradient. The corrected versions of all
-of these are what we report, and we would summarize both halves of the project with
-the same advice: in this kind of analysis, the baseline is the experiment.
+The vision experiments were straightforward. The library's decomposition code is
+clean, the models train in minutes, and the paper describes its setups precisely
+enough to re-implement every figure. The language experiments were harder, for
+reasons that have little to do with the method. Code that reproduces the paper's
+figures and appendices one by one never existed in public form. The official
+library provides the building blocks, much of the remaining experiment code lived
+in an unstructured unofficial repository that has since been made private, and the
+missing cleaned dataset put absolute loss comparisons permanently out of reach.
+Assembling one runnable experiment per figure, which we provide, and locating the
+correct public artifacts took most of the effort. One example of the latter is
+that the paper's ``ts-tiny'' model is published under the name \texttt{ts-medium}.
+In the extension, the recurring difficulty was of a different kind. Almost every
+headline number changed once its baseline was measured properly. Single-draw
+random controls understated the encoder's causal baseline by half, a PCA
+comparison looked meaningful until a chance floor was computed, and an auxiliary
+loss turned out to be silently detached from the gradient. The corrected versions
+are what we report, and both halves of the project point to the same advice. In
+this kind of analysis, the baseline is the experiment.
 
 \subsubsection*{Broader Impact Statement}
 
-This work evaluates and extends an interpretability method; it introduces no new
-model capabilities. The adversarial masks of C4 and the encoder steering of the
-extension are constructed from full knowledge of a model's weights and target small
-MNIST-scale models, so they do not constitute a practical attack surface beyond
-what gradient-based attacks already provide in the white-box setting. We expect the
-net impact of better weight-based transparency tools to be positive.
+This work evaluates and extends an interpretability method and introduces no new
+model capabilities. All experiments use small models trained on standard public
+datasets, and the adversarial constructions require full access to a model's
+weights, a setting in which stronger gradient-based attacks already exist. We
+expect better tools for understanding networks through their weights to support
+model auditing, and we see no direct negative applications of these results.
 
 \bibliography{main}
 \bibliographystyle{tmlr}
@@ -1109,9 +1105,7 @@ net impact of better weight-based transparency tools to be positive.
 \section{Model architectures and hyperparameters}
 \label{app:hyper}
 
-\begin{table}[h]
-\caption{Vision classifier training configuration (all C1--C4 experiments unless the
-experiment sweeps the parameter).}
+\begin{table}[H]
 \begin{center}
 \begin{tabular}{ll}
 \toprule
@@ -1125,10 +1119,11 @@ input noise & Gaussian, std $0.5$ \\
 \bottomrule
 \end{tabular}
 \end{center}
+\caption{Vision classifier training configuration (all C1--C4 experiments unless the
+experiment sweeps the parameter).}
 \end{table}
 
-\begin{table}[h]
-\caption{TinyStories transformer configuration (public checkpoint and our C7 runs).}
+\begin{table}[H]
 \begin{center}
 \begin{tabular}{ll}
 \toprule
@@ -1141,10 +1136,10 @@ epochs & 5 \\
 \bottomrule
 \end{tabular}
 \end{center}
+\caption{TinyStories transformer configuration (public checkpoint and our C7 runs).}
 \end{table}
 
-\begin{table}[h]
-\caption{TinyLlama fine-tuning configuration (C7).}
+\begin{table}[H]
 \begin{center}
 \begin{tabular}{ll}
 \toprule
@@ -1157,13 +1152,10 @@ $\beta$-annealing & linear $1 \to 0$ over first 30\% of steps \\
 \bottomrule
 \end{tabular}
 \end{center}
+\caption{TinyLlama fine-tuning configuration (C7).}
 \end{table}
 
-\begin{table}[h]
-\caption{Extension VAE configurations. All variants use $d_{\text{embed}} = 256$,
-$d_{\text{hidden}} = 512$, and $d_{\text{latent}} = 10$ unless swept; training is
-AdamW (lr $10^{-3}$, weight decay $0.01$), batch 128, 30 epochs, input noise 0.3,
-best-validation checkpointing, five seeds per reported statistic.}
+\begin{table}[H]
 \begin{center}
 \begin{tabular}{ll}
 \toprule
@@ -1175,6 +1167,10 @@ alignment runs & repaired Jacobian-cosine loss at $\lambda \in \{1, 1000\}$, thr
 \bottomrule
 \end{tabular}
 \end{center}
+\caption{Extension VAE configurations. All variants use $d_{\text{embed}} = 256$,
+$d_{\text{hidden}} = 512$, and $d_{\text{latent}} = 10$ unless swept; training is
+AdamW (lr $10^{-3}$, weight decay $0.01$), batch 128, 30 epochs, input noise 0.3,
+best-validation checkpointing, five seeds per reported statistic.}
 \end{table}
 
 \section{Additional reproduced material}
@@ -1198,21 +1194,23 @@ the quantitative results.
 \section{Extension experiment inventory}
 \label{app:extinv}
 
-The extension comprises 50 experiments across the three sub-projects
-(\texttt{bilinear-encoder}: 11, \texttt{bilinear-decoder}: 18,
-\texttt{bilinear-full}: 21), each a self-contained script that writes its figures
-and a JSON file with every quantity it reports; the repository's
-\texttt{extension/EXPERIMENTS.md} describes all of them individually. The main text
-draws on the following subset: the encoder latent dictionary, truncation,
-cross-class similarity, causal test, seed consistency, steering, and the
-Fashion-MNIST and KMNIST batteries; the decoder synthesis, causal generation,
-untrained-network control, centering correction, alternative-correction comparison,
-PCA control, latent-dimension sweep, gradient baselines, and KMNIST battery; and the
-full model's symmetry diagnosis, seed-level centering statistics, alignment
-measurements with the repaired loss, and truncation with centered targets. Numbers
-not shown in the main text, including per-class values, spectra, mass ratios,
-per-pixel generative fields, encode--decode iteration dynamics, and training-time
-trajectories of the reported quantities, are available in the corresponding JSON
-files.
+The extension comprises about fifty experiments across the three model families,
+and the main text presents only the subset that carries the argument. The rest
+fall into three groups. The first contains consistency and robustness checks,
+among them seed stability of eigenvectors and syntheses, the evolution of the
+reported quantities over training, and encode--decode iteration dynamics. The
+second contains earlier versions of protocols that the final experiments
+superseded, such as the first alignment measurements and single-draw random
+baselines, kept because they document why the final protocols look the way they
+do. The third contains exploratory results that did not earn a claim, including a
+sweep of the KL weight, disentanglement metrics for all four architectures, and
+the convolutional CIFAR-10 variant mentioned in Section~\ref{sec:extlimits}. One
+of these deserves a sentence here. Tracking the reported quantities over training
+shows that the shared raw-target direction is essentially in place after the first
+epoch and drifts only slightly thereafter, while the encoder's class directions
+continue to separate, which supports reading the raw-target failure as a property
+of the probes rather than something training gradually creates. Every experiment
+writes its figures and its quantitative results to a results file, and the
+accompanying documentation describes each experiment individually.
 
 \end{document}
