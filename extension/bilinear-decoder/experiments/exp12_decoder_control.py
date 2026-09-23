@@ -7,7 +7,8 @@ eigenvector of Q_dec is nearly identical across all digit classes (mean cosine
 
 Three-way comparison:
   (A) Trained DecBilinearVAE      — the finding (mean ≈ 0.842)
-  (B) Random DecBilinearVAE       — untrained, random weights
+  (B) Random DecBilinearVAE       — untrained, random weights, measured over
+      ten seeded initializations (mean ± std; seed 0 shown in the figure).
       If (B) is also high: universality is structural (mathematical property
       of bilinear Q_dec).  If (B) is low: it is a learned property.
   (C) VanillaVAE                  — standard MLP decoder, no bilinear layer.
@@ -20,11 +21,13 @@ Interpretation guide:
     (A) high, (B) low,  (C) low  →  learned (bilinear decoder learns it during training)
     (A) high, (B) any,  (C) high →  general VAE property (not bilinear-specific)
 
-Figure saved:
+Outputs:
     figures/mnist/exp12_decoder_control.png
+    figures/mnist/exp12_results.json
 """
 
 import os
+import json
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -129,9 +132,17 @@ def main():
     trained = DecBilinearVAE(); load_checkpoint(trained, CKPT_TRAINED); trained.eval()
     mat_trained = _dec_crossclass_similarity(trained, mean_imgs)
 
-    # (B) Random (untrained) DecBilinearVAE
-    random_model = DecBilinearVAE(); random_model.eval()
-    mat_random   = _dec_crossclass_similarity(random_model, mean_imgs)
+    # (B) Random (untrained) DecBilinearVAE — ten seeded initializations,
+    # so the baseline is a distribution rather than a single draw (seed 0's
+    # similarity matrix is the one shown in the figure).
+    random_means, mat_random = [], None
+    for seed in range(10):
+        torch.manual_seed(seed)
+        random_model = DecBilinearVAE(); random_model.eval()
+        mat = _dec_crossclass_similarity(random_model, mean_imgs)
+        random_means.append(float(mat[mat < 1.0].mean()))
+        if seed == 0:
+            mat_random = mat
 
     # (C) Trained VanillaVAE — decoded class-mean latent similarity
     vanilla = VanillaVAE()
@@ -146,22 +157,25 @@ def main():
     def _off_diag_mean(m):
         return m[m < 1.0].mean()
 
-    print(f"\n(A) Trained DecBilinearVAE  (eigvec cosine):          mean={_off_diag_mean(mat_trained):.3f}")
-    print(f"(B) Random  DecBilinearVAE  (eigvec cosine):          mean={_off_diag_mean(mat_random):.3f}")
-    print(f"(C) VanillaVAE             (decoded mean-lat cosine): mean={_off_diag_mean(mat_vanilla_dec):.3f}")
-    print(f"    DecBilinearVAE         (decoded mean-lat cosine): mean={_off_diag_mean(mat_dec_means):.3f}")
-
-    # Interpretation
     trained_mean = _off_diag_mean(mat_trained)
-    random_mean  = _off_diag_mean(mat_random)
+    random_mean  = float(np.mean(random_means))
+    random_std   = float(np.std(random_means))
     vanilla_mean = _off_diag_mean(mat_vanilla_dec)
     dec_mean_lat = _off_diag_mean(mat_dec_means)
 
+    print(f"\n(A) Trained DecBilinearVAE  (eigvec cosine):          mean={trained_mean:.3f}")
+    print(f"(B) Random  DecBilinearVAE  (eigvec cosine):          "
+          f"{random_mean:.3f} ± {random_std:.3f} over 10 seeded inits "
+          f"(range {min(random_means):.3f}–{max(random_means):.3f})")
+    print(f"(C) VanillaVAE             (decoded mean-lat cosine): mean={vanilla_mean:.3f}")
+    print(f"    DecBilinearVAE         (decoded mean-lat cosine): mean={dec_mean_lat:.3f}")
+
     print("\nInterpretation:")
-    if random_mean > 0.7:
-        print("  → High similarity in random model: universality is STRUCTURAL (bilinear Q_dec geometry)")
-    else:
-        print("  → Low similarity in random model: universality is LEARNED during training")
+    print(f"  → Untrained band {random_mean:.2f} ± {random_std:.2f} is already high: "
+          "a large part of the shared direction is STRUCTURAL (bilinear Q_dec geometry)")
+    if trained_mean > random_mean + random_std:
+        print(f"  → Trained value {trained_mean:.3f} sits above the untrained band: "
+              "training AMPLIFIES the shared direction")
     if vanilla_mean > 0.7:
         print("  → High similarity in VanillaVAE: this is a general VAE decoder property")
     else:
@@ -175,7 +189,8 @@ def main():
         (mat_trained,  axes[0, 0],
          f"(A) Trained DecBilinearVAE\neigvec cosine  mean={trained_mean:.3f}"),
         (mat_random,   axes[0, 1],
-         f"(B) Random DecBilinearVAE\neigvec cosine  mean={random_mean:.3f}"),
+         f"(B) Random DecBilinearVAE (seed 0 shown)\n"
+         f"eigvec cosine  {random_mean:.3f} ± {random_std:.3f} (10 inits)"),
         (mat_dec_means, axes[1, 0],
          f"DecBilinearVAE decoded mean-latents\npixel cosine  mean={dec_mean_lat:.3f}"),
         (mat_vanilla_dec, axes[1, 1],
@@ -192,6 +207,18 @@ def main():
                  fontsize=12, y=1.01)
     fig.tight_layout()
     save_fig(fig, "figures/mnist/exp12_decoder_control.png")
+
+    with open("figures/mnist/exp12_results.json", "w") as f:
+        json.dump({
+            "trained_eigvec_cosine_mean": float(trained_mean),
+            "random_eigvec_cosine_mean": random_mean,
+            "random_eigvec_cosine_std": random_std,
+            "random_eigvec_cosine_per_seed": random_means,
+            "random_n_seeds": len(random_means),
+            "vanilla_decoded_cosine_mean": float(vanilla_mean),
+            "dec_bilinear_decoded_cosine_mean": float(dec_mean_lat),
+        }, f, indent=2)
+    print("Results written to figures/mnist/exp12_results.json")
 
 
 if __name__ == "__main__":

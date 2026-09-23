@@ -29,7 +29,7 @@ Decoder:  z(10)  → Linear(256, no bias) → BilinearLayer(512) → Linear(784,
 | Decoder cross-class eigvec similarity, raw targets (Fashion-MNIST) | **0.910** |
 | Decoder cross-class eigvec similarity, centered targets (MNIST, exp13) | **0.429** |
 | Encoder cross-class eigvec similarity (class-mean μ encodings, exp09) | **0.350** |
-| Random (untrained) DecBilinearVAE cross-class similarity | **0.646** |
+| Random (untrained) DecBilinearVAE cross-class similarity | **0.682 ± 0.100** (10 seeded inits) |
 | VanillaVAE decoded mean-latent similarity | 0.565 |
 | Rank of generative subspace per class | 2–3 positive eigenvectors |
 | Seed consistency (pixel-space cosine) | **0.993** |
@@ -41,7 +41,7 @@ With raw targets the decoder has a **near-universal generative direction** — t
 
 **Mass-ratio correlation is fragile (exp10):** the Pearson r = −0.697 (p = 0.025) hinges on outlier class d1 (mass ratio 0.243 vs ≈ 0.09–0.13 for all other classes). Spearman rank correlation is not significant (ρ = −0.479, p = 0.162), and leave-one-out Pearson spans r ∈ [−0.773, −0.324]; dropping d1 alone gives r = −0.324 (p = 0.395). The correlation should not be treated as established.
 
-Exp 12 shows a randomly initialised DecBilinearVAE already has high cross-class similarity (**0.646**) — well above the VanillaVAE decoded-mean-latent baseline (0.565) — and training *amplifies* it to 0.842. The near-universal direction is therefore **seeded by the bilinear Q_dec geometry at initialisation and reinforced by training**, rather than purely learned (as for a vanilla decoder) or purely architectural.
+Exp 12 shows a randomly initialised DecBilinearVAE already has high cross-class similarity (**0.682 ± 0.100** over ten seeded inits) — well above the VanillaVAE decoded-mean-latent baseline (0.565) — and training *amplifies* it to 0.842, above the top of the untrained band. The near-universal direction is therefore **seeded by the bilinear Q_dec geometry at initialisation and reinforced by training**, rather than purely learned (as for a vanilla decoder) or purely architectural.
 
 ## The resolution (exp 13): the universal direction is mostly a target artefact
 
