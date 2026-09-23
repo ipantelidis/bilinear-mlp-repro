@@ -224,7 +224,7 @@ checkpoint files are never overwritten).
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/ipantelidis/bilinear-mlp-repro.git  
+git clone <repository-url>
 cd bilinear-mlp-repro  
 ```
 
