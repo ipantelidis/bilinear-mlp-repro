@@ -143,8 +143,9 @@ def main():
     print(f"Latent std (V2): {v2_std.round(3)}")
     print(f"V1 symmetry verified: f(z)=f(-z), max diff={max_diff:.2e}")
 
-    # Pick 5 examples per set for display
-    idx = [torch.where(labels == c)[0][0].item() for c in range(10)]
+    # Pick 6 examples for display (diverse digits with a clear v1/v2 contrast)
+    show = [0, 3, 4, 5, 7, 8]
+    idx = [torch.where(labels == c)[0][0].item() for c in show]
     imgs_show   = real_imgs[idx].view(-1, 28, 28).numpy()
     v1_r_show   = v1_recons[idx].view(-1, 28, 28).numpy()
     v2_r_show   = v2_recons[idx].view(-1, 28, 28).numpy()
@@ -154,28 +155,53 @@ def main():
         d_pos_show = v1.decode(z_idx).view(-1, 28, 28).numpy()
         d_neg_show = v1.decode(-z_idx).view(-1, 28, 28).numpy()
 
-    # Figure
-    n = 10
-    fig, axes = plt.subplots(5, n, figsize=(2.0 * n, 10),
-                              gridspec_kw={"hspace": 0.06, "wspace": 0.04})
+    # Figure: 5 image rows in two visual groups — reconstruction quality
+    # (input / v1 / v2) on top, the even-symmetry identity (f(z) vs f(-z))
+    # boxed below.  All panels come straight from the saved checkpoints.
+    n = len(show)
+    fig = plt.figure(figsize=(6.3, 4.35))
+    gs = fig.add_gridspec(6, n, height_ratios=[1, 1, 1, 0.28, 1, 1],
+                          hspace=0.06, wspace=0.05,
+                          left=0.225, right=0.985, top=0.955, bottom=0.075)
 
-    row_labels = ["real", "V1 recon", "V2 recon", "V1: f(z)", "V1: f(−z)\n≡f(z)"]
-    rows = [imgs_show, v1_r_show, v2_r_show, d_pos_show, d_neg_show]
-
-    for row_i, (row_data, rlbl) in enumerate(zip(rows, row_labels)):
+    row_specs = [
+        (0, imgs_show,  "input"),
+        (1, v1_r_show,  f"v1 recon\nMSE {v1_mse:.3f}"),
+        (2, v2_r_show,  f"v2 recon (+skip)\nMSE {v2_mse:.3f}"),
+        (4, d_pos_show, "v1 decode(z)"),
+        (5, d_neg_show, "v1 decode(−z)"),
+    ]
+    axd = {}
+    for gr, row_data, rlbl in row_specs:
         for col_i in range(n):
-            axes[row_i, col_i].imshow(row_data[col_i], cmap="gray_r", vmin=0, vmax=1)
-            _clean(axes[row_i, col_i])
-            if row_i == 0:
-                axes[row_i, col_i].set_title(f"d{col_i}", fontsize=9)
-        axes[row_i, 0].set_ylabel(rlbl, fontsize=8, labelpad=4)
+            ax = fig.add_subplot(gs[gr, col_i])
+            ax.imshow(row_data[col_i], cmap="gray_r", vmin=0, vmax=1)
+            _clean(ax)
+            if gr == 0:
+                ax.set_title(f"{show[col_i]}", fontsize=8, pad=2)
+            if col_i == 0:
+                ax.text(-0.18, 0.5, rlbl, transform=ax.transAxes,
+                        ha="right", va="center", fontsize=8.5,
+                        fontweight="bold", linespacing=1.35)
+            axd[(gr, col_i)] = ax
 
-    fig.suptitle(f"Exp 11 — V1 failure: f(z)≡f(−z)\n"
-                 f"V1 max|f(z)−f(−z)|={max_diff:.2e}  |  "
-                 f"Recon MSE: V1={v1_mse:.4f}  V2={v2_mse:.4f}",
-                 fontsize=10, y=1.01)
-    fig.tight_layout()
-    save_fig(fig, "figures/mnist/exp11_v1_failure.png")
+    # Box the last two rows: they are pixel-identical by the even-symmetry
+    # identity of the pure bilinear decoder.
+    p_tl = axd[(4, 0)].get_position()
+    p_br = axd[(5, n - 1)].get_position()
+    pad_x, pad_y = 0.010, 0.014
+    x0, x1 = p_tl.x0 - pad_x, p_br.x1 + pad_x
+    y0, y1 = p_br.y0 - pad_y, p_tl.y1 + pad_y
+    fig.add_artist(plt.Rectangle((x0, y0), x1 - x0, y1 - y0,
+                                 transform=fig.transFigure, fill=False,
+                                 edgecolor="firebrick", linewidth=1.2,
+                                 zorder=5))
+    diff_str = "0" if max_diff == 0 else f"{max_diff:.1e}"
+    fig.text(0.5 * (x0 + x1), y0 - 0.012,
+             f"pixel-identical: max |f(z) − f(−z)| = {diff_str}",
+             ha="center", va="top", fontsize=8.5, fontweight="bold",
+             color="firebrick")
+    save_fig(fig, "figures/mnist/exp11_v1_failure.png", dpi=300)
 
     # Figure 2: latent std comparison + training curves
     fig2, axes2 = plt.subplots(1, 2, figsize=(12, 4))

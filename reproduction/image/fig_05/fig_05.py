@@ -167,10 +167,13 @@ fig.update_layout(
     height=400,
     legend_title_text="Model Size",
 )
-fig.update_xaxes(title="Eigenvector rank")
-fig.update_yaxes(title="Cosine similarity", range=[0.4, 1.01])
+# Presentation only: pad the x-range so curves/bands do not run into the
+# plot border, and show the full y-range so no curve is clipped below 0.4
+# (rank-15 similarity for size 30 is ~0.13). scale=4 for print resolution.
+fig.update_xaxes(title="Eigenvector rank", range=[-0.3, 14.3])
+fig.update_yaxes(title="Cosine similarity", range=[0, 1.01])
 
-fig.write_image(HERE / "fig_05a.png")
+fig.write_image(HERE / "fig_05a.png", scale=4)
 
 # =====================================
 # FIGURE 2 — Truncation error across sizes

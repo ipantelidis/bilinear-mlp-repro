@@ -65,7 +65,15 @@ fig = plot_eigenspectrum(
     digit=5,
     eigenvectors=4,
     eigenvalues=20,
+    # Presentation only: the top two positive eigenvalues are ~0.01 apart,
+    # so their y-tick labels overlap; drop the second label (the marker
+    # itself is still plotted).
+    ignore_pos=[1],
 )
+
+# Presentation only: small margins so edge tick labels are not flush
+# with the image border.
+fig.update_layout(margin=dict(l=4, r=4, b=4, t=10))
 
 fig.write_image(HERE / "fig_03.png", scale=4)
 

@@ -69,46 +69,56 @@ def run_test(model, loader) -> tuple[list, float]:
     return results, mean_norm
 
 
+def _clean(ax):
+    """Hide ticks and frame but keep axis labels (axis('off') erases labels)."""
+    ax.set_xticks([]); ax.set_yticks([])
+    for s in ax.spines.values():
+        s.set_visible(False)
+
+
 def plot(trained: list, random: list, mean_norm: float) -> None:
     n = len(trained)
-    fig, axes = plt.subplots(4, n, figsize=(2.0 * n, 8.0),
-                             gridspec_kw={"hspace": 0.08, "wspace": 0.05})
+    fig = plt.figure(figsize=(6.2, 1.88))
+    gs = fig.add_gridspec(4, n, height_ratios=[1, 0.36, 1, 0.36],
+                          hspace=0.06, wspace=0.06,
+                          left=0.075, right=0.995, top=0.92, bottom=0.005)
+    axes = gs.subplots()
 
     def fill(results, row_img, row_lbl, label):
         for col, r in enumerate(results):
             img  = (r["eigenvector"] * mean_norm).view(28, 28).numpy()
             vmax = max(abs(img).max(), 1e-8)
             axes[row_img, col].imshow(img, cmap="RdBu_r", vmin=-vmax, vmax=vmax)
-            axes[row_img, col].axis("off")
+            _clean(axes[row_img, col])
             if row_img == 0:
-                axes[row_img, col].set_title(f"d{r['class']}", fontsize=9)
+                axes[row_img, col].set_title(f"{r['class']}", fontsize=7.5, pad=2)
 
             tick  = "✓" if r["correct"] else f"→{r['nearest']}"
             color = "darkgreen" if r["correct"] else "firebrick"
-            axes[row_lbl, col].text(0.5, 0.65, tick, ha="center", va="center",
-                fontsize=13, color=color, transform=axes[row_lbl, col].transAxes)
-            axes[row_lbl, col].text(0.5, 0.2, f"cos={r['cos_to_true']:.2f}",
-                ha="center", va="center", fontsize=7,
+            axes[row_lbl, col].text(0.5, 0.66, tick, ha="center", va="center",
+                fontsize=8.5, color=color, fontweight="bold",
                 transform=axes[row_lbl, col].transAxes)
-            axes[row_lbl, col].axis("off")
+            axes[row_lbl, col].text(0.5, 0.08, f"cos {r['cos_to_true']:.2f}",
+                ha="center", va="center", fontsize=5.6, color="0.35",
+                transform=axes[row_lbl, col].transAxes)
+            _clean(axes[row_lbl, col])
 
         n_ok = sum(r["correct"] for r in results)
-        axes[row_img, 0].set_ylabel(f"{label}\neigenvector", fontsize=8, labelpad=4)
-        axes[row_lbl, 0].set_ylabel(f"nearest class\n({n_ok}/{n})", fontsize=8, labelpad=4)
+        axes[row_img, 0].set_ylabel(label, fontsize=7.5, fontweight="bold",
+                                    labelpad=3)
+        axes[row_lbl, 0].set_ylabel(f"{n_ok}/{n}", fontsize=6.5, labelpad=3)
 
     fill(trained, 0, 1, "trained")
-    fill(random,  2, 3, "random")
+    fill(random,  2, 3, "untrained")
 
-    fig.add_artist(plt.Line2D([0.02, 0.98], [0.505, 0.505],
-                               transform=fig.transFigure,
-                               color="gray", linestyle="--", linewidth=0.9))
-    n_tr = sum(r["correct"] for r in trained)
-    n_rn = sum(r["correct"] for r in random)
-    fig.suptitle(f"Exp 05 — Maximally activating input test\n"
-                 f"Trained: {n_tr}/{n} correct    Random: {n_rn}/{n} correct",
-                 fontsize=11, y=1.01)
+    # thin divider between the trained block and the untrained control block
+    y_mid = 0.5 * (axes[1, 0].get_position().y0 +
+                   axes[2, 0].get_position().y1)
+    fig.add_artist(plt.Line2D([0.01, 0.995], [y_mid, y_mid],
+                              transform=fig.transFigure,
+                              color="0.6", linestyle="--", linewidth=0.7))
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT, dpi=130, bbox_inches="tight")
+    fig.savefig(OUT, dpi=300, bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
     print(f"  Saved → {OUT}")
 
